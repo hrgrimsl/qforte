@@ -4,6 +4,7 @@ qforte.py
 The core module of my example project
 """
 
+#Test comment
 
 def about_me(your_name):
     """
