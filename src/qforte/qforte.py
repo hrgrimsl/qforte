@@ -4,17 +4,14 @@ qforte.py
 The core module of my example project
 """
 
-#Test comment
 
 def about_me(your_name):
     """
     Return the most important thing about a person.
-
     Parameters
     ----------
     your_name
         A string indicating the name of the person.
-
     """
     return "The wise {} loves Python.".format(your_name)
 
@@ -22,7 +19,6 @@ def about_me(your_name):
 def example_doc_function():
     """
     A brief description goes here.
-
     Parameters
     ----------
     :param n: : type
@@ -32,15 +28,12 @@ def example_doc_function():
 class example_doc_class():
     """
     A class to read, write, and manipulate cube files
-
     This class assumes that all coordinates (atoms, grid points)
     are stored in atomic units
-
     Attributes
     ----------
     data : type
         description
-
     Methods
     -------
     load(filename)
