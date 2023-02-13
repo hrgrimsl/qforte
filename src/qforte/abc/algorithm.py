@@ -27,7 +27,7 @@ class Algorithm(ABC):
 
     _fast : bool
         Whether or not to use a faster version of the algorithm that bypasses
-        measurment (unphysical for quantum computer). Most algorithms only
+        measurement (unphysical for quantum computer). Most algorithms only
         have a fast implentation.
 
     _trotter_order : int

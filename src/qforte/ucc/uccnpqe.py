@@ -17,6 +17,9 @@ from qforte.utils.trotterization import trotterize
 from qforte.helper.printing import matprint
 
 import numpy as np
+import scipy
+import math
+from numpy.random import *
 from scipy.linalg import lstsq
 
 class UCCNPQE(UCCPQE):
@@ -50,7 +53,8 @@ class UCCNPQE(UCCPQE):
             pool_type='SD',
             opt_thresh = 1.0e-5,
             opt_maxiter = 40,
-            noise_factor = 0.0):
+            noise_factor = 0.0,
+            seed = None):
 
         if(self._state_prep_type != 'occupation_list'):
             raise ValueError("PQE implementation can only handle occupation_list Hartree-Fock reference.")
@@ -59,6 +63,7 @@ class UCCNPQE(UCCPQE):
         self._opt_thresh = opt_thresh
         self._opt_maxiter = opt_maxiter
         self._noise_factor = noise_factor
+        self._seed = seed
 
         self._tops = []
         self._tamps = []
@@ -85,6 +90,14 @@ class UCCNPQE(UCCPQE):
 
         self.initialize_ansatz()
 
+        if self._seed is None:
+            pass
+        else:
+            if(self._verbose):
+                print(f'Initialization Seed: {self._seed}')
+            rng = default_rng(seed = self._seed)
+            self._tamps = 2*math.pi*rng.random(len(self._tamps))
+            
         if(self._verbose):
             print('\nt operators included from pool: \n', self._tops)
             print('Initial tamplitudes for tops: \n', self._tamps)
@@ -160,7 +173,10 @@ class UCCNPQE(UCCPQE):
         print('Number of non-zero res element evaluations:  ', int(self._res_vec_evals)*self._n_nonzero_params)
 
     def solve(self):
-        self.diis_solve(self.get_residual_vector)
+        #self.diis_solve(self.get_residual_vector)
+        self.grad_solve(self.get_residual_gradient)
+
+
 
     def fill_excited_dets(self):
         for _, sq_op in self._pool_obj:
@@ -259,6 +275,121 @@ class UCCNPQE(UCCPQE):
 
         return residuals
 
+    def get_residual_gradient(self, trial_amps):
+
+        Q = len(trial_amps)
+        
+        #Initialize |000...>
+        qc_res = qforte.Computer(self._nqb)
+        #Prep HF state
+        qc_res.apply_circuit(self._Uprep)
+
+        #Construct {r} |0>, exp(A1t1)|0>, exp(A2t2)exp(A1t1)|0>... 
+        # as well as {Ar} A1exp(A1t1)|0>, A2exp(A2t2)exp(A1t1)|0>, ...
+        #Set of vectors
+        r = [qc_res.get_coeff_vec()]
+        Ar = []
+        for i in range(0, Q):
+            #e^At...|0>
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(trial_amps[-i-1], self._pool_obj[self._tops[-i-1]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            U, phase1 = trotterize(A, trotter_number = self._trotter_number)
+            qc_res.apply_circuit(U)
+            r.append(qc_res.get_coeff_vec())
+            
+            #Ae^At...|0>
+            temp_qc = qforte.Computer(self._nqb)
+            temp_qc.set_coeff_vec(qc_res.get_coeff_vec())
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(1, self._pool_obj[self._tops[-i-1]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            temp_qc.apply_operator(A)
+            Ar.append(temp_qc)
+
+        Uref = qforte.Computer(self._nqb)
+        Uref.set_coeff_vec(r[-1])
+        
+        #qc_res.apply_operator(self._qb_ham)
+        #qc_res.apply_circuit(U.adjoint())
+
+        #Construct {rH} HU|0>, exp(-Antn)HU|0>,...
+        #and {AHr} A'n exp(AntA)HU|0>,...
+        HUref = qforte.Computer(self._nqb)
+        HUref.set_coeff_vec(Uref.get_coeff_vec())
+        HUref.apply_operator(self._qb_ham)
+
+        Hr = [HUref.get_coeff_vec()]
+        AHr = []
+
+        for i in reversed(range(0, Q)):
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(-trial_amps[i], self._pool_obj[self._tops[i]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            U, phase1 = trotterize(A, trotter_number = self._trotter_number)
+            HUref.apply_circuit(U)
+            Hr.append(HUref.get_coeff_vec())
+            
+            temp_qc = qforte.Computer(self._nqb)
+            temp_qc.set_coeff_vec(Hr[-1])
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(-1, self._pool_obj[self._tops[i]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            temp_qc.apply_operator(A)
+            AHr.append(temp_qc.get_coeff_vec())
+
+        l = []
+        lH = []
+
+        for j in range(0, Q):
+
+            qc_res = qforte.Computer(self._nqb)
+            qc_res.apply_circuit(self._Uprep)
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(1, self._pool_obj[self._tops[j]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            qc_res.apply_operator(A)
+            lj = [qc_res.get_coeff_vec()]
+            
+            #We now have |j>
+            for i in range(0, Q):
+                temp_pool = qforte.SQOpPool()
+                temp_pool.add(trial_amps[i], self._pool_obj[self._tops[i]][1])
+                A = temp_pool.get_qubit_operator('commuting_grp_lex')
+                U, phase1 = trotterize(A, trotter_number = self._trotter_number)
+                qc_res.apply_circuit(U)
+                lj.append(qc_res.get_coeff_vec())
+
+            #We now have U|j>
+            qc_res.apply_operator(self._qb_ham)
+            #and HU|j>
+            lHj = [qc_res.get_coeff_vec()]
+            for i in reversed(range(0, Q)):
+                temp_pool = qforte.SQOpPool()
+                temp_pool.add(-trial_amps[i], self._pool_obj[self._tops[i]][1])
+                A = temp_pool.get_qubit_operator('commuting_grp_lex')
+                U, phase1 = trotterize(A, trotter_number = self._trotter_number)
+                qc_res.apply_circuit(U)
+                lHj.append(qc_res.get_coeff_vec())
+            l.append(lj)
+            lH.append(lHj)
+
+        energy = np.array(Hr[-1]).conjugate()@np.array(r[0])
+        #print(f"\nEnergy = {energy.real}")
+        resid = np.zeros(Q, dtype = "complex_")
+        for i in range(0, Q):
+            resid[i] = np.array(lH[-i-1][-1], dtype = "complex_").conjugate()@np.array(r[0], dtype = "complex_")
+        #print("\nResidual vector\n")
+        #print(resid)
+        
+        jac = np.zeros((Q,Q), dtype = "complex_")
+        for i in range(0, Q):
+            for j in range(0, Q):
+                jac[i,j] = (np.array(l[i][j], dtype = "complex_").conjugate())@(np.array(AHr[-j-1],dtype = "complex_")) + (np.array(lH[i][-j-1], dtype = "complex_").conjugate())@(np.array(r[j],dtype = "complex_"))
+        #print("\nJacobian:\n")
+        #print(jac)
+        return energy, resid, jac
+
     def initialize_ansatz(self):
         """Adds all operators in the pool to the list of operators in the circuit,
         with amplitude 0.
@@ -268,3 +399,4 @@ class UCCNPQE(UCCPQE):
             self._tamps.append(0.0)
 
 UCCNPQE.diis_solve = optimizer.diis_solve
+UCCNPQE.grad_solve = optimizer.grad_solve

@@ -3,12 +3,30 @@ import qforte
 import copy
 import numpy as np
 
-def diis_solve(self, residual):
+def grad_solve(self, residual_gradient, rtol = 1e-8):
+    t = copy.deepcopy(self._tamps)
+    Done = False
+    iter = 0
+    while Done == False:
+        energy, residual, jacobian = residual_gradient(t)
+        print(residual)
+        print(f"Iteration:      {iter}")
+        print(f"Energy:         {energy.real}")
+        rnorm = np.linalg.norm(residual)
+        print(f"Residual Norm:  {rnorm}")
+        if rnorm < rtol:
+            Done = True
+        else:
+            t -= np.linalg.inv(jacobian)@residual
+            iter += 1
+        exit()
+def diis_solve(self, residual, max_diis_dim = 12):
     """This function attempts to minimize the norm of the residual vector
     by using a quasi-Newton update procedure for the amplitudes paired with
     the direct inversion of iterative subspace (DIIS) convergence acceleration.
     """
     # draws heavy inspiration from Daniel Smith's ccsd_diis.py code in psi4 numpy
+    
     diis_dim = 0
     t_diis = [copy.deepcopy(self._tamps)]
     e_diis = []
@@ -33,6 +51,7 @@ def diis_solve(self, residual):
         rk_norm = np.linalg.norm(r_k)
 
         r_k = self.get_res_over_mpdenom(r_k)
+        #r_k = [-i for i in r_k]
         self._tamps = list(np.add(self._tamps, r_k))
 
         Ek = self.energy_feval(self._tamps)
@@ -52,7 +71,9 @@ def diis_solve(self, residual):
 
         t_diis.append(copy.deepcopy(self._tamps))
         e_diis.append(np.subtract(copy.deepcopy(self._tamps), t_old))
-
+        if len(e_diis) > max_diis_dim:
+            t_diis.pop(0)
+            e_diis.pop(0)
         if(k >= 1):
             diis_dim = len(t_diis) - 1
 
