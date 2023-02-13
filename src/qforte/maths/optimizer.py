@@ -3,10 +3,13 @@ import qforte
 import copy
 import numpy as np
 
-def grad_solve(self, residual_gradient, rtol = 1e-8):
+def grad_solve(self, residual_gradient, rtol = 1e-5):
     t = copy.deepcopy(self._tamps)
     Done = False
     iter = 0
+    residual = self.get_residual_vector(t)
+    print(residual)
+    
     while Done == False:
         energy, residual, jacobian = residual_gradient(t)
         print(residual)
@@ -17,9 +20,12 @@ def grad_solve(self, residual_gradient, rtol = 1e-8):
         if rnorm < rtol:
             Done = True
         else:
-            t -= np.linalg.inv(jacobian)@residual
+            t -= (np.linalg.inv(jacobian)@residual).real
             iter += 1
         exit()
+    self._Egs = energy.real
+    self._tamps = t
+
 def diis_solve(self, residual, max_diis_dim = 12):
     """This function attempts to minimize the norm of the residual vector
     by using a quasi-Newton update procedure for the amplitudes paired with
