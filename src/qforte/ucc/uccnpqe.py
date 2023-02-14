@@ -276,7 +276,6 @@ class UCCNPQE(UCCPQE):
         return residuals
 
     def get_residual_gradient(self, trial_amps):
-
         Q = len(trial_amps)
         
         #Initialize |000...>
@@ -307,6 +306,7 @@ class UCCNPQE(UCCPQE):
             A = temp_pool.get_qubit_operator('commuting_grp_lex')
             temp_qc.apply_operator(A)
             Ar.append(temp_qc.get_coeff_vec())
+            
 
         Uref = qforte.Computer(self._nqb)
         Uref.set_coeff_vec(r[-1])
@@ -376,19 +376,21 @@ class UCCNPQE(UCCPQE):
             lH.append(lHj)
 
         energy = np.array(Hr[-1]).conjugate()@np.array(r[0])
-        #print(f"\nEnergy = {energy.real}")
+
         resid = np.zeros(Q, dtype = "complex_")
 
         for i in range(0, Q):
             resid[i] = np.array(lH[i][-1], dtype = "complex_").conjugate()@np.array(r[0], dtype = "complex_")
-        #print("\nResidual vector\n")
-        #print(resid)
+
         
         jac = np.zeros((Q,Q), dtype = "complex_")
 
         for i in range(0, Q):
             for j in range(0, Q):
-                jac[i,j] = (np.array(l[i][j], dtype = "complex_").conjugate())@(np.array(AHr[-j-1],dtype = "complex_")) + (np.array(lH[i][-j-1], dtype = "complex_").conjugate())@(np.array(Ar[j],dtype = "complex_"))
+                jac[i,j] = (np.array(l[i][j], dtype = "complex_").conjugate())@(np.array(AHr[-j-1],dtype = "complex_")) + (np.array(lH[i][-j-2], dtype = "complex_").conjugate())@(np.array(Ar[j],dtype = "complex_"))
+
+
+
 
         #print("\nJacobian:\n")
         #print(jac)

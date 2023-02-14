@@ -2,17 +2,39 @@ import qforte
 
 import copy
 import numpy as np
+import math
 
-def grad_solve(self, residual_gradient, rtol = 1e-5):
+def grad_solve(self, residual_gradient, rtol = 1e-6):
     t = copy.deepcopy(self._tamps)
     Done = False
     iter = 0
+
+    #Numerical Check
+    '''
     residual = self.get_residual_vector(t)
+    print("Numerical residual")
     print(residual)
-    
+    print("Numerical Jacobian")
+
+    for i in range(0, len(t)):
+        h = 1e-3
+        tplus = copy.deepcopy(t)
+        tplus[i] += h
+        rplus = np.array(self.get_residual_vector(tplus))
+        tminus = copy.deepcopy(t)
+        tminus[i] -= h
+        rminus = np.array(self.get_residual_vector(tminus))
+        print((rplus - rminus)/(2*h))
+    '''
     while Done == False:
         energy, residual, jacobian = residual_gradient(t)
+        '''
+        print(f"Analytical Residual")
         print(residual)
+        print(f"Analytical Jacobian")
+        print(jacobian)
+        exit()
+        '''
         print(f"Iteration:      {iter}")
         print(f"Energy:         {energy.real}")
         rnorm = np.linalg.norm(residual)
@@ -22,7 +44,7 @@ def grad_solve(self, residual_gradient, rtol = 1e-5):
         else:
             t -= (np.linalg.inv(jacobian)@residual).real
             iter += 1
-        exit()
+
     self._Egs = energy.real
     self._tamps = t
 
