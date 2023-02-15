@@ -29,11 +29,32 @@ def norm_grad_bfgs(self, residual, residual_gradient, tol = 1e-7):
     self._Egs = self.energy_feval(self._tamps)
 
 def grad_solve(self, residual_gradient, rtol = 1e-6):
+    import faulthandler
+    faulthandler.enable()
+
+    """
+    num_E = self.energy_feval(self._tamps).real
+
+    num_res = np.array(self.get_residual_vector(self._tamps)).real
+
+    h = 1e-4
+    r = []
+    for i in range(0, len(self._tamps)):
+        tplus = copy.deepcopy(self._tamps)
+        tplus[i] += h
+        tminus = copy.deepcopy(self._tamps)
+        tminus[i] -= h
+        dr = (np.array(self.get_residual_vector(tplus))-np.array(self.get_residual_vector(tminus)))/(2*h)
+        r.append(list(dr))
+    num_jac = np.array(r).T.real
+    """
+
     t = copy.deepcopy(self._tamps)
     Done = False
     iter = 0
     while Done == False:
         energy, residual, jacobian = residual_gradient(t)
+
         print(f"Iteration:      {iter}")
         print(f"Energy:         {energy.real}")
         rnorm = np.linalg.norm(residual)
@@ -41,6 +62,7 @@ def grad_solve(self, residual_gradient, rtol = 1e-6):
         w, v = np.linalg.eig(jacobian)
 
         w = np.reciprocal(w)
+
         j_inv = v@np.diag(w)@v.T
 
         if rnorm < rtol:
@@ -48,9 +70,8 @@ def grad_solve(self, residual_gradient, rtol = 1e-6):
         else:
             dt = -(j_inv@residual).real
             t += dt
-            print(f"dt norm: {np.linalg.norm(dt)}")
+            print(f"dt Norm: {np.linalg.norm(dt)}")
             iter += 1
-    print(energy.real)
 
     self._Egs = energy.real
     self._tamps = t

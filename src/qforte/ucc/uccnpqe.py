@@ -282,7 +282,7 @@ class UCCNPQE(UCCPQE):
         self._res_m_evals += len(self._tamps)
 
         return residuals
-    @profile()
+    #@profile()
     def get_residual_gradient(self, trial_amps):
 
         Q = len(trial_amps)
@@ -369,44 +369,34 @@ class UCCNPQE(UCCPQE):
             temp_pool.add(1, self._pool_obj[self._tops[j]][1])
             A = temp_pool.get_qubit_operator('commuting_grp_lex')
             qc_res.apply_operator(A)
-            lj = [qc_res.get_coeff_vec()]
             #We now have |j>
+
+            jac[j,0] += (np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(AHr[Q-1],dtype = "complex_"))
             for i in range(0, Q):
-
-
                 temp_pool = qforte.SQOpPool()
                 temp_pool.add(trial_amps[i], self._pool_obj[self._tops[i]][1])
                 A = temp_pool.get_qubit_operator('commuting_grp_lex')
                 U, phase1 = trotterize(A, trotter_number = self._trotter_number)
                 qc_res.apply_circuit(U)
-                jac[j,i] += (np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(AHr[-i-1],dtype = "complex_"))
-
-
-
+                if i < Q-1:
+                    jac[j,i+1] += (np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(AHr[Q-i-2],dtype = "complex_"))
+            
             #We now have U|j> 
             qc_res.apply_operator(self._qb_ham)
-
-            #and HU|j>
-            lHj = [qc_res.get_coeff_vec()]
-
-
+            #And HU|j>
+            jac[j][Q-1] += (np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(Ar[Q-1],dtype = "complex_"))
             for i in reversed(range(0, Q)):
                 temp_pool = qforte.SQOpPool()
                 temp_pool.add(-trial_amps[i], self._pool_obj[self._tops[i]][1])
                 A = temp_pool.get_qubit_operator('commuting_grp_lex')
                 U, phase1 = trotterize(A, trotter_number = self._trotter_number)
                 qc_res.apply_circuit(U)
-                #lHj.append(qc_res.get_coeff_vec())
-                jac[j][-i-2] += (np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(Ar[-i-2],dtype = "complex_"))
+                if i > 0:
+                    jac[j][i-1] += (np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(Ar[i-1],dtype = "complex_"))
             resid[j] = np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate()@np.array(r[0], dtype = "complex_")
-
-
-
-
 
         energy = np.array(Hr[-1]).conjugate()@np.array(r[0])
 
-        exit()
         return energy, resid, jac
 
     def initialize_ansatz(self):
