@@ -80,8 +80,12 @@ void QubitOperator::canonical_order() {
 }
 
 void QubitOperator::simplify(bool combine_like_terms) {
+
+    //Problem Line
     canonical_order();
+
     std::unordered_map<Circuit, std::complex<double>> uniqe_trms;
+
     for (const auto& term : terms_) {
         if ( uniqe_trms.find(term.second) == uniqe_trms.end() ) {
             uniqe_trms.insert(std::make_pair(term.second, term.first));
@@ -89,6 +93,7 @@ void QubitOperator::simplify(bool combine_like_terms) {
             uniqe_trms[term.second] += term.first;
         }
     }
+
     terms_.clear();
     if(combine_like_terms){
         for (const auto &uniqe_trm : uniqe_trms){
@@ -101,12 +106,15 @@ void QubitOperator::simplify(bool combine_like_terms) {
             terms_.push_back(std::make_pair(uniqe_trm.second, uniqe_trm.first));
         }
     }
+
 }
 
 void QubitOperator::operator_product(const QubitOperator& rqo, bool pre_simplify, bool post_simplify) {
+
     if (pre_simplify) {
         simplify();
     }
+
 
     QubitOperator LR;
     for (auto& term_l : terms_) {
@@ -117,13 +125,22 @@ void QubitOperator::operator_product(const QubitOperator& rqo, bool pre_simplify
             LR.add_term(term_l.first * term_r.first, temp_circ);
         }
     }
+
     terms_ = std::move(LR.terms());
 
+
+
     if (post_simplify) {
+
+	//Problem Line
         simplify();
+
     } else {
+
         canonical_order();
+
     }
+
 }
 
 const std::vector<std::pair<std::complex<double>, Circuit>>& QubitOperator::terms() const {

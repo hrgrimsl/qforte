@@ -38,6 +38,7 @@ Circuit Circuit::adjoint() {
 }
 
 std::complex<double> Circuit::canonicalize_pauli_circuit() {
+
     if (gates_.size()==0){
         // If there are no gates, there's nothing to order.
         return 1.0;
@@ -68,6 +69,7 @@ std::complex<double> Circuit::canonicalize_pauli_circuit() {
         {std::make_pair("I", "Z"), std::make_pair( 1.0,  "Z")}
     };
 
+
     // Apply gate commutation to sort gates from those acting on smallest-index qubit to largest.
     std::stable_sort(gates_.begin(), gates_.end(),
         [&](const Gate& a, const Gate& b) {
@@ -81,17 +83,29 @@ std::complex<double> Circuit::canonicalize_pauli_circuit() {
     std::string s;
     bool first_gate_for_qubit = true;
 
+
     for (int i=0; i < n_gates; i++) {
         if (first_gate_for_qubit) {
             s = gates_[i].gate_id();
         }
-        if(gates_[i].target() == gates_[i+1].target() && i + 1 != n_gates) {
+
+	//Problem: target() is the problem
+
+	//std::cout << n_gates;
+	//std::cout << "\n";
+	//std::cout << i;	
+	//std::cout << "\n";
+        //if(gates_[i].target() == gates_[i+1].target() && i + 1 != n_gates) {
+        if(i + 1 != n_gates && gates_[i].target() == gates_[i+1].target()) {
+
             // The upcoming gate also acts on this qubit, and it exists. Time to update s.
             const auto& qubit_update = m[std::make_pair(s, gates_[i+1].gate_id())];
             coeff *= qubit_update.first;
             s = qubit_update.second;
             first_gate_for_qubit = false;
+
         } else {
+
             // The upcoming gate does not act on this qubit or doesn't exist.
             // Let's add the current qubit, if it's non-trivial.
             if (s != "I") {

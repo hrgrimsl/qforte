@@ -3,6 +3,7 @@
 #include "gate.h"
 #include "qubit_basis.h"
 #include "sparse_tensor.h"
+#include <iostream>
 
 const std::vector<std::pair<size_t, size_t>> Gate::two_qubits_basis_{
     {0, 0}, {0, 1}, {1, 0}, {1, 1}};
@@ -19,7 +20,7 @@ Gate::Gate(const std::string& label, size_t target, size_t control,
     }
 }
 
-size_t Gate::target() const { return target_; }
+size_t Gate::target() const {return target_; }
 
 size_t Gate::control() const { return control_; }
 

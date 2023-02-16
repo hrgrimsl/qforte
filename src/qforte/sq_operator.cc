@@ -103,10 +103,12 @@ bool SQOperator::permutation_phase(std::vector<int> p) const {
 }
 
 void SQOperator::jw_helper(QubitOperator& holder, const std::vector<size_t>& operators, bool creator) const {
+
     std::complex<double> halfi(0.0, 0.5);
     if (creator) { halfi *= -1; };
 
     for (const auto& sq_op : operators) {
+
         QubitOperator temp;
         Circuit Xcirc;
         Circuit Ycirc;
@@ -116,15 +118,23 @@ void SQOperator::jw_helper(QubitOperator& holder, const std::vector<size_t>& ope
             Ycirc.add_gate(make_gate("Z", k, k));
         }
 
+
         Xcirc.add_gate(make_gate("X", sq_op, sq_op));
         Ycirc.add_gate(make_gate("Y", sq_op, sq_op));
+
         temp.add_term(0.5, Xcirc);
         temp.add_term(halfi, Ycirc);
 
+
         if (holder.terms().size() == 0) {
+
             holder.add_op(temp);
+
         } else {
+
+	    //Problem Line
             holder.operator_product(temp);
+
         }
     }
 }
@@ -134,24 +144,39 @@ QubitOperator SQOperator::jw_transform() {
     QubitOperator qo;
 
     for (const auto& fermion_operator : terms_) {
+
         auto cre_length = std::get<1>(fermion_operator).size();
         auto ann_length = std::get<2>(fermion_operator).size();
+
 
         if (cre_length == 0 && ann_length == 0) {
             // Scalars need special logic.
             Circuit scalar_circ;
             QubitOperator scalar_op;
+
             scalar_op.add_term(std::get<0>(fermion_operator), scalar_circ);
             qo.add_op(scalar_op);
+
             continue;
         }
 
+
+
+
+
         QubitOperator temp1;
+
+	//Problem line:
         jw_helper(temp1, std::get<1>(fermion_operator), true);
+
         jw_helper(temp1, std::get<2>(fermion_operator), false);
+
+
+
 
         temp1.mult_coeffs(std::get<0>(fermion_operator));
         qo.add_op(temp1);
+
     }
 
     qo.simplify();

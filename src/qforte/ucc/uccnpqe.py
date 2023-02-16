@@ -284,7 +284,8 @@ class UCCNPQE(UCCPQE):
         return residuals
     #@profile()
     def get_residual_gradient(self, trial_amps):
-
+        import faulthandler
+        faulthandler.enable()
         Q = len(trial_amps)
         
         #Initialize |000...>
@@ -302,7 +303,9 @@ class UCCNPQE(UCCPQE):
             #e^At...|0>
             temp_pool = qforte.SQOpPool()
             temp_pool.add(trial_amps[i], self._pool_obj[self._tops[i]][1])
+
             A = temp_pool.get_qubit_operator('commuting_grp_lex')
+
             U, phase1 = trotterize(A, trotter_number = self._trotter_number)
             qc_res.apply_circuit(U)
             r.append(qc_res.get_coeff_vec())
@@ -312,7 +315,9 @@ class UCCNPQE(UCCPQE):
             temp_qc.set_coeff_vec(qc_res.get_coeff_vec())
             temp_pool = qforte.SQOpPool()
             temp_pool.add(1, self._pool_obj[self._tops[i]][1])
+
             A = temp_pool.get_qubit_operator('commuting_grp_lex')
+
             temp_qc.apply_operator(A)
             Ar.append(temp_qc.get_coeff_vec())
 
@@ -340,7 +345,9 @@ class UCCNPQE(UCCPQE):
 
             temp_pool = qforte.SQOpPool()
             temp_pool.add(-trial_amps[i], self._pool_obj[self._tops[i]][1])
+
             A = temp_pool.get_qubit_operator('commuting_grp_lex')
+
             U, phase1 = trotterize(A, trotter_number = self._trotter_number)
             qc_res.apply_circuit(U)
             Hr.append(qc_res.get_coeff_vec())
@@ -349,7 +356,9 @@ class UCCNPQE(UCCPQE):
             temp_qc.set_coeff_vec(Hr[-1])
             temp_pool = qforte.SQOpPool()
             temp_pool.add(-1, self._pool_obj[self._tops[i]][1])
+
             A = temp_pool.get_qubit_operator('commuting_grp_lex')
+
             temp_qc.apply_operator(A)
             AHr.append(temp_qc.get_coeff_vec())
 
@@ -375,7 +384,9 @@ class UCCNPQE(UCCPQE):
             for i in range(0, Q):
                 temp_pool = qforte.SQOpPool()
                 temp_pool.add(trial_amps[i], self._pool_obj[self._tops[i]][1])
+
                 A = temp_pool.get_qubit_operator('commuting_grp_lex')
+
                 U, phase1 = trotterize(A, trotter_number = self._trotter_number)
                 qc_res.apply_circuit(U)
                 if i < Q-1:

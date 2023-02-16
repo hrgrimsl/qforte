@@ -29,8 +29,7 @@ def norm_grad_bfgs(self, residual, residual_gradient, tol = 1e-7):
     self._Egs = self.energy_feval(self._tamps)
 
 def grad_solve(self, residual_gradient, rtol = 1e-6):
-    import faulthandler
-    faulthandler.enable()
+
 
     """
     num_E = self.energy_feval(self._tamps).real

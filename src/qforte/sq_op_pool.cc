@@ -10,6 +10,7 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <typeinfo>
 
 void SQOpPool::add_term(std::complex<double> coeff, const SQOperator& sq_op ){
     terms_.push_back(std::make_pair(coeff, sq_op));
@@ -76,12 +77,12 @@ QubitOperator SQOpPool::get_qubit_operator(const std::string& order_type, bool c
         parent.order_terms();
     } else if (order_type=="commuting_grp_lex") {
         for (auto& term : terms_) {
+	    //Problem Line
             auto child = term.second.jw_transform();
             child.mult_coeffs(term.first);
             child.simplify(combine_like_terms=combine_like_terms);
             child.order_terms();
             parent.add_op(child);
-
         }
     } else {
         throw std::invalid_argument( "Invalid order_type specified.");
