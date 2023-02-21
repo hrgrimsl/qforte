@@ -7,6 +7,21 @@ import scipy
 import time 
 
 def norm_grad(t, residual, residual_gradient):
+    #Numerical Check
+    num_resid = residual(t)
+    h = 1e-4
+    print("External Residual")
+    print(num_resid)
+    print("Numerical Jacobian")
+    for i in range(0, len(t)):
+        tplus = copy.deepcopy(t)
+        tplus[i] += h
+        tminus = copy.deepcopy(t)
+        tminus[i] -= h
+        print((np.array(residual(tplus))-np.array(residual(tminus)))/(2*h))
+
+
+
     global energy
     global rnorm
     global rgrad
@@ -17,6 +32,13 @@ def norm_grad(t, residual, residual_gradient):
     rgrad = (grad@grad).real
     w = np.linalg.svd(wfn_jac, compute_uv = False)
     jmin = np.amin(abs(w))
+    print("Energy")
+    print(energy)
+    print("Residual")
+    print(resid)
+    print("Jacobian")
+    print(jacobian)
+    exit()
     return grad
 
 def norm_square(t, residual, residual_gradient):

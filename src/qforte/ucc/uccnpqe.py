@@ -288,6 +288,7 @@ class UCCNPQE(UCCPQE):
         faulthandler.enable()
         Q = len(trial_amps)
         
+        #trial_amps = [1,2,3]
         #Initialize |000...>
         qc_res = qforte.Computer(self._nqb)
         #Prep HF state
@@ -323,24 +324,25 @@ class UCCNPQE(UCCPQE):
 
 
         rev_r = []
-        trial_amps = [0*math.pi/2,0*math.pi/2,1*math.pi/2]
+
         wfn_jac = np.zeros((Q+1,Q), dtype = "complex_")
         qc_res = qforte.Computer(self._nqb)
         qc_res.apply_circuit(self._Uprep)
-        wfn_jac[0,Q-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ar[Q-1],dtype="complex_"))
+
+        wfn_jac[0,Q-1] = (np.array(r[0],dtype="complex_")).conjugate()@(np.array(Ar[Q-1],dtype="complex_"))
         for i in reversed(range(0, Q)):
             temp_pool = qforte.SQOpPool()
-            temp_pool.add(trial_amps[i], self._pool_obj[self._tops[i]][1])
+            temp_pool.add(-trial_amps[i], self._pool_obj[self._tops[i]][1])
 
             A = temp_pool.get_qubit_operator('commuting_grp_lex')
 
             U, phase1 = trotterize(A, trotter_number = self._trotter_number)
             qc_res.apply_circuit(U)
-            if i < Q - 1:
-                print(i)
-                wfn_jac[0,i] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ar[i],dtype="complex_"))
-        print(wfn_jac)
-        exit()
+            if i>0:
+
+                wfn_jac[0,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ar[i-1],dtype="complex_"))
+
+
 
         #Uref
         qc_res = qforte.Computer(self._nqb)
@@ -393,11 +395,9 @@ class UCCNPQE(UCCPQE):
         jac = np.zeros((Q,Q), dtype = "complex_")
 
 
-        for i in range(0, Q):
-            wfn_jac[0,i] = (np.array(Ar[i], dtype = "complex_").conjugate())@(np.array(r[Q-i-2],dtype = "complex_"))
+
 
         for j in range(0, Q):
-
             qc_res = qforte.Computer(self._nqb)
             qc_res.apply_circuit(self._Uprep)
             temp_pool = qforte.SQOpPool()
@@ -405,8 +405,8 @@ class UCCNPQE(UCCPQE):
             A = temp_pool.get_qubit_operator('commuting_grp_lex')
             qc_res.apply_operator(A)
             #We now have |j>
-
-
+            j_vec = qc_res.get_coeff_vec()
+            jac[j,0] += (np.array(qc_res.get_coeff_vec(),dtype="complex_").conjugate())@(np.array(AHr[Q-1],dtype="complex_"))
             for i in range(0, Q):
                 temp_pool = qforte.SQOpPool()
                 temp_pool.add(trial_amps[i], self._pool_obj[self._tops[i]][1])
@@ -417,7 +417,6 @@ class UCCNPQE(UCCPQE):
                 qc_res.apply_circuit(U)
                 if i < Q-1:
                     jac[j,i+1] += (np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(AHr[Q-i-2],dtype = "complex_"))
-
 
 
             #We now have U|j> 
@@ -434,9 +433,23 @@ class UCCNPQE(UCCPQE):
                     jac[j][i-1] += (np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(Ar[i-1],dtype = "complex_"))
             resid[j] = np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate()@np.array(r[0], dtype = "complex_")
 
+
+            qc_res = qforte.Computer(self._nqb)
+            qc_res.set_coeff_vec(j_vec)
+            wfn_jac[j+1,Q-1] = (np.array(j_vec,dtype="complex_")).conjugate()@(np.array(Ar[Q-1],dtype="complex_"))
+            for i in reversed(range(0, Q)):
+                temp_pool = qforte.SQOpPool()
+                temp_pool.add(-trial_amps[i], self._pool_obj[self._tops[i]][1])
+
+                A = temp_pool.get_qubit_operator('commuting_grp_lex')
+
+                U, phase1 = trotterize(A, trotter_number = self._trotter_number)
+                qc_res.apply_circuit(U)
+                if i > 0:
+                    wfn_jac[j+1,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ar[i-1],dtype="complex_"))
+
         energy = np.array(Hr[-1]).conjugate()@np.array(r[0])
-        print(wfn_jac)
-        exit()
+
         return energy, resid, jac, wfn_jac
 
     def initialize_ansatz(self):
