@@ -242,6 +242,9 @@ class UCCNPQE(UCCPQE):
 
             self._excited_dets.append((I, phase_factor))
 
+
+        
+
     def get_residual_vector(self, trial_amps):
         """Returns the residual vector with elements pertaining to all operators
         in the ansatz circuit.
@@ -325,11 +328,11 @@ class UCCNPQE(UCCPQE):
 
         rev_r = []
 
-        wfn_jac = np.zeros((Q+1,Q), dtype = "complex_")
+        wfn_jac = np.zeros((Q+1,Q+1,Q), dtype = "complex_")
         qc_res = qforte.Computer(self._nqb)
         qc_res.apply_circuit(self._Uprep)
 
-        wfn_jac[0,Q-1] = (np.array(r[0],dtype="complex_")).conjugate()@(np.array(Ar[Q-1],dtype="complex_"))
+        wfn_jac[0,0,Q-1] = (np.array(r[0],dtype="complex_")).conjugate()@(np.array(Ar[Q-1],dtype="complex_"))
         for i in reversed(range(0, Q)):
             temp_pool = qforte.SQOpPool()
             temp_pool.add(-trial_amps[i], self._pool_obj[self._tops[i]][1])
@@ -340,7 +343,7 @@ class UCCNPQE(UCCPQE):
             qc_res.apply_circuit(U)
             if i>0:
 
-                wfn_jac[0,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ar[i-1],dtype="complex_"))
+                wfn_jac[0,0,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ar[i-1],dtype="complex_"))
 
 
 
@@ -360,9 +363,6 @@ class UCCNPQE(UCCPQE):
 
         Hr = [qc_res.get_coeff_vec()]
         AHr = []
-
-
-
 
         for i in reversed(range(0, Q)):
 
@@ -385,19 +385,13 @@ class UCCNPQE(UCCPQE):
             temp_qc.apply_operator(A)
             AHr.append(temp_qc.get_coeff_vec())
 
-
-        l = []
-        lH = []
-
-
-
+        j_vecs = []
+        Ares = []
         resid = np.zeros(Q, dtype = "complex_")
         jac = np.zeros((Q,Q), dtype = "complex_")
 
-
-
-
         for j in range(0, Q):
+            Ares_j = []
             qc_res = qforte.Computer(self._nqb)
             qc_res.apply_circuit(self._Uprep)
             temp_pool = qforte.SQOpPool()
@@ -406,6 +400,7 @@ class UCCNPQE(UCCPQE):
             qc_res.apply_operator(A)
             #We now have |j>
             j_vec = qc_res.get_coeff_vec()
+            j_vecs.append(j_vec)
             jac[j,0] += (np.array(qc_res.get_coeff_vec(),dtype="complex_").conjugate())@(np.array(AHr[Q-1],dtype="complex_"))
             for i in range(0, Q):
                 temp_pool = qforte.SQOpPool()
@@ -418,7 +413,14 @@ class UCCNPQE(UCCPQE):
                 if i < Q-1:
                     jac[j,i+1] += (np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(AHr[Q-i-2],dtype = "complex_"))
 
-
+                temp_qc = qforte.Computer(self._nqb)
+                temp_qc.set_coeff_vec(qc_res.get_coeff_vec())
+                temp_pool = qforte.SQOpPool()
+                temp_pool.add(1, self._pool_obj[self._tops[i]][1])
+                A = temp_pool.get_qubit_operator('commuting_grp_lex')
+                temp_qc.apply_operator(A)
+                Ares_j.append(temp_qc.get_coeff_vec())
+            Ares.append(Ares_j)
             #We now have U|j> 
             qc_res.apply_operator(self._qb_ham)
             #And HU|j>
@@ -433,10 +435,9 @@ class UCCNPQE(UCCPQE):
                     jac[j][i-1] += (np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(Ar[i-1],dtype = "complex_"))
             resid[j] = np.array(qc_res.get_coeff_vec(), dtype = "complex_").conjugate()@np.array(r[0], dtype = "complex_")
 
-
             qc_res = qforte.Computer(self._nqb)
             qc_res.set_coeff_vec(j_vec)
-            wfn_jac[j+1,Q-1] = (np.array(j_vec,dtype="complex_")).conjugate()@(np.array(Ar[Q-1],dtype="complex_"))
+            wfn_jac[0,j+1,Q-1] = (np.array(j_vec,dtype="complex_")).conjugate()@(np.array(Ar[Q-1],dtype="complex_"))
             for i in reversed(range(0, Q)):
                 temp_pool = qforte.SQOpPool()
                 temp_pool.add(-trial_amps[i], self._pool_obj[self._tops[i]][1])
@@ -446,7 +447,43 @@ class UCCNPQE(UCCPQE):
                 U, phase1 = trotterize(A, trotter_number = self._trotter_number)
                 qc_res.apply_circuit(U)
                 if i > 0:
-                    wfn_jac[j+1,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ar[i-1],dtype="complex_"))
+                    wfn_jac[0,j+1,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ar[i-1],dtype="complex_"))
+
+
+        for k in range(0, Q):
+
+            qc_res = qforte.Computer(self._nqb)
+            qc_res.apply_circuit(self._Uprep)
+            wfn_jac[k+1,0,Q-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ares[k][Q-1],dtype="complex_"))
+            for i in reversed(range(0, Q)):
+                temp_pool = qforte.SQOpPool()
+                temp_pool.add(-trial_amps[i], self._pool_obj[self._tops[i]][1])
+
+                A = temp_pool.get_qubit_operator('commuting_grp_lex')
+                U, phase1 = trotterize(A, trotter_number = self._trotter_number)
+                qc_res.apply_circuit(U)
+                if i > 0:
+                    print((k+1,0,i-1))
+                    wfn_jac[k+1,0,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ares[k][i-1],dtype="complex_"))
+            
+
+
+            for j in range(0, Q):
+                wfn_jac[k+1,j+1,Q-1] = (np.array(j_vecs[j],dtype="complex_")).conjugate()@(np.array(Ares[k][Q-1],dtype="complex_"))
+                print((k+1,j+1,Q-1))
+                qc_res = qforte.Computer(self._nqb)
+                qc_res.set_coeff_vec(j_vecs[j])
+                for i in reversed(range(0, Q)):
+                    temp_pool = qforte.SQOpPool()
+                    temp_pool.add(-trial_amps[i], self._pool_obj[self._tops[i]][1])
+
+                    A = temp_pool.get_qubit_operator('commuting_grp_lex')
+
+                    U, phase1 = trotterize(A, trotter_number = self._trotter_number)
+                    qc_res.apply_circuit(U)
+                    if i > 0:
+                        print((k+1,j+1,i-1))
+                        wfn_jac[k+1,j+1,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ares[k][i-1],dtype="complex_"))
 
         energy = np.array(Hr[-1]).conjugate()@np.array(r[0])
 
