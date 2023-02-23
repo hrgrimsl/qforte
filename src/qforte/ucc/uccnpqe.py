@@ -463,14 +463,14 @@ class UCCNPQE(UCCPQE):
                 U, phase1 = trotterize(A, trotter_number = self._trotter_number)
                 qc_res.apply_circuit(U)
                 if i > 0:
-                    print((k+1,0,i-1))
+
                     wfn_jac[k+1,0,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ares[k][i-1],dtype="complex_"))
             
 
 
             for j in range(0, Q):
                 wfn_jac[k+1,j+1,Q-1] = (np.array(j_vecs[j],dtype="complex_")).conjugate()@(np.array(Ares[k][Q-1],dtype="complex_"))
-                print((k+1,j+1,Q-1))
+
                 qc_res = qforte.Computer(self._nqb)
                 qc_res.set_coeff_vec(j_vecs[j])
                 for i in reversed(range(0, Q)):
@@ -482,7 +482,7 @@ class UCCNPQE(UCCPQE):
                     U, phase1 = trotterize(A, trotter_number = self._trotter_number)
                     qc_res.apply_circuit(U)
                     if i > 0:
-                        print((k+1,j+1,i-1))
+
                         wfn_jac[k+1,j+1,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ares[k][i-1],dtype="complex_"))
 
         energy = np.array(Hr[-1]).conjugate()@np.array(r[0])

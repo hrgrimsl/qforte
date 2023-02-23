@@ -24,17 +24,20 @@ def norm_grad(t, residual, residual_gradient):
     global energy
     global rnorm
     global rgrad
-    global jmin
-    t = [1,2,3]
+    global jmins
+    global ejmin
     energy, resid, jacobian, wfn_jac = residual_gradient(t)
     grad = 2*jacobian.T.real@resid.real
     rnorm = (resid@resid).real
     rgrad = (grad@grad).real
-    w = np.linalg.svd(wfn_jac, compute_uv = False)
-    jmin = np.amin(abs(w))
-    print("Analytical Wavefunction Jacobian")
-    print(wfn_jac)
-    exit()
+    jmins = []
+    for i in range(0, len(t)+1):
+        w = np.linalg.svd(wfn_jac[i], compute_uv = False)
+        jmin = np.amin(abs(w))
+        jmins.append(jmin)
+    w = np.linalg.svd(jacobian, compute_uv = False)
+    ejmin = np.amin(abs(w))
+
     return grad
 
 def norm_square(t, residual, residual_gradient):
@@ -44,22 +47,27 @@ def norm_square(t, residual, residual_gradient):
 
 def norm_grad_cb(x):
     global nits
-    print(f"Iter:         {nits}")
-    print(f"Energy:       {energy.real}")
-    print(f"rnorm:        {rnorm}")
-    print(f"rgrad:        {rgrad}")
-    print(f"Jac. min.     {jmin}")
+    print(f"Iter:                   {nits}")
+    print(f"Energy:                 {energy.real}")
+    print(f"rnorm:                  {rnorm}")
+    print(f"rgrad:                  {rgrad}")
+    print(f"Energy Jac. Min:        {ejmin}")
+    for i in range(0, len(x)+1):
+        print(f"Jac. min. {i}:             {jmins[i]}")
     nits += 1
 
-def norm_grad_bfgs(self, residual, residual_gradient, tol = 1e-6):
+def norm_grad_bfgs(self, residual, residual_gradient, tol = 1e-8):
     global nits
+    jmins = None
+    ejmin = None
     nits = 1
-    #opt = scipy.optimize.minimize(norm_square, self._tamps, args=(residual, residual_gradient), method='bfgs', jac=None, hess=None, hessp=None, bounds=None, constraints=(), tol=tol, callback=None, options=None)
-    opt = scipy.optimize.minimize(norm_square, self._tamps, args=(residual, residual_gradient), method='bfgs', jac=norm_grad, hess=None, hessp=None, bounds=None, constraints=(), tol=tol, callback=norm_grad_cb, options={'disp':True})
+    opt = scipy.optimize.minimize(norm_square, self._tamps, args=(residual, residual_gradient), method='bfgs', jac=None, hess=None, hessp=None, bounds=None, constraints=(), tol=tol, callback=None, options=None)
+    #opt = scipy.optimize.minimize(norm_square, self._tamps, args=(residual, residual_gradient), method='bfgs', jac=norm_grad, hess=None, hessp=None, bounds=None, constraints=(), tol=tol, callback=norm_grad_cb, options={'disp':True})
     self._tamps = opt.x
     self.rnorm = opt.fun
     self._Egs = self.energy_feval(self._tamps)
-    self.jmin = jmin
+    self.jmins = jmins
+    self.ejmin = ejmin
 
 def grad_solve(self, residual_gradient, rtol = 1e-6):
 
