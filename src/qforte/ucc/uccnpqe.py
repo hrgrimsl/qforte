@@ -57,7 +57,8 @@ class UCCNPQE(UCCPQE):
             opt_maxiter = 40,
             noise_factor = 0.0,
             seed = None,
-            solver = 'diis'):
+            solver = 'diis',
+            instances = 1):
 
         if(self._state_prep_type != 'occupation_list'):
             raise ValueError("PQE implementation can only handle occupation_list Hartree-Fock reference.")
@@ -92,6 +93,9 @@ class UCCNPQE(UCCPQE):
             print(self._pool_obj.str())
 
         self.initialize_ansatz()
+        self.Q_unique = len(self._tops)
+        self._tops *= instances
+        self._tamps = np.zeros(len(self._tops))
 
         if self._seed is None:
             pass
@@ -100,7 +104,7 @@ class UCCNPQE(UCCPQE):
                 print(f'Initialization Seed: {self._seed}')
             rng = default_rng(seed = self._seed)
             self._tamps = 2*math.pi*rng.random(len(self._tamps))
-            
+
         if(self._verbose):
             print('\nt operators included from pool: \n', self._tops)
             print('Initial tamplitudes for tops: \n', self._tamps)
@@ -328,7 +332,7 @@ class UCCNPQE(UCCPQE):
 
         rev_r = []
 
-        wfn_jac = np.zeros((Q+1,Q+1,Q), dtype = "complex_")
+        wfn_jac = np.zeros((self.Q_unique+1,self.Q_unique+1,Q), dtype = "complex_")
         qc_res = qforte.Computer(self._nqb)
         qc_res.apply_circuit(self._Uprep)
 
@@ -351,14 +355,6 @@ class UCCNPQE(UCCPQE):
         qc_res = qforte.Computer(self._nqb)
         qc_res.set_coeff_vec(r[-1])
         
-        #qc_res.apply_operator(self._qb_ham)
-        #qc_res.apply_circuit(U.adjoint())
-
-        #Construct {rH} HU|0>, exp(-Antn)HU|0>,...
-        #and {AHr} A'n exp(AntA)HU|0>,...
-        #HUref = qforte.Computer(self._nqb)
-        #HUref.set_coeff_vec(Uref.get_coeff_vec())
-        #HUref
         qc_res.apply_operator(self._qb_ham)
 
         Hr = [qc_res.get_coeff_vec()]
@@ -387,10 +383,10 @@ class UCCNPQE(UCCPQE):
 
         j_vecs = []
         Ares = []
-        resid = np.zeros(Q, dtype = "complex_")
-        jac = np.zeros((Q,Q), dtype = "complex_")
+        resid = np.zeros(self.Q_unique, dtype = "complex_")
+        jac = np.zeros((self.Q_unique,Q), dtype = "complex_")
 
-        for j in range(0, Q):
+        for j in range(0, self.Q_unique):
             Ares_j = []
             qc_res = qforte.Computer(self._nqb)
             qc_res.apply_circuit(self._Uprep)
@@ -450,7 +446,7 @@ class UCCNPQE(UCCPQE):
                     wfn_jac[0,j+1,i-1] = (np.array(qc_res.get_coeff_vec(),dtype="complex_")).conjugate()@(np.array(Ar[i-1],dtype="complex_"))
 
 
-        for k in range(0, Q):
+        for k in range(0, self.Q_unique):
 
             qc_res = qforte.Computer(self._nqb)
             qc_res.apply_circuit(self._Uprep)
@@ -468,7 +464,7 @@ class UCCNPQE(UCCPQE):
             
 
 
-            for j in range(0, Q):
+            for j in range(0, self.Q_unique):
                 wfn_jac[k+1,j+1,Q-1] = (np.array(j_vecs[j],dtype="complex_")).conjugate()@(np.array(Ares[k][Q-1],dtype="complex_"))
 
                 qc_res = qforte.Computer(self._nqb)
