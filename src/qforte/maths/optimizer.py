@@ -9,6 +9,7 @@ import time
 def norm_grad(t, residual, residual_gradient):
     #Numerical Check
     '''
+    t = [1,2,3]
     num_resid = residual(t)
     h = 1e-4
     print("External Residual")
@@ -20,6 +21,8 @@ def norm_grad(t, residual, residual_gradient):
         tminus = copy.deepcopy(t)
         tminus[i] -= h
         print((np.array(residual(tplus))-np.array(residual(tminus)))/(2*h))
+
+    exit()
     '''
     global energy
     global rnorm
@@ -31,7 +34,8 @@ def norm_grad(t, residual, residual_gradient):
     rnorm = (resid@resid).real
     rgrad = (grad@grad).real
     jmins = []
-    for i in range(0, len(t)+1):
+
+    for i in range(0, len(wfn_jac)):
         w = np.linalg.svd(wfn_jac[i], compute_uv = False)
         jmin = np.amin(abs(w))
         jmins.append(jmin)
@@ -52,7 +56,7 @@ def norm_grad_cb(x):
     print(f"rnorm:                  {rnorm}")
     print(f"rgrad:                  {rgrad}")
     print(f"Energy Jac. Min:        {ejmin}")
-    for i in range(0, len(x)+1):
+    for i in range(0, len(jmins)):
         print(f"Jac. min. {i}:             {jmins[i]}")
     nits += 1
 
@@ -61,8 +65,8 @@ def norm_grad_bfgs(self, residual, residual_gradient, tol = 1e-8):
     jmins = None
     ejmin = None
     nits = 1
-    opt = scipy.optimize.minimize(norm_square, self._tamps, args=(residual, residual_gradient), method='bfgs', jac=None, hess=None, hessp=None, bounds=None, constraints=(), tol=tol, callback=None, options=None)
-    #opt = scipy.optimize.minimize(norm_square, self._tamps, args=(residual, residual_gradient), method='bfgs', jac=norm_grad, hess=None, hessp=None, bounds=None, constraints=(), tol=tol, callback=norm_grad_cb, options={'disp':True})
+    #opt = scipy.optimize.minimize(norm_square, self._tamps, args=(residual, residual_gradient), method='bfgs', jac=None, hess=None, hessp=None, bounds=None, constraints=(), tol=tol, callback=None, options=None)
+    opt = scipy.optimize.minimize(norm_square, self._tamps, args=(residual, residual_gradient), method='bfgs', jac=norm_grad, hess=None, hessp=None, bounds=None, constraints=(), tol=tol, callback=norm_grad_cb, options={'disp':True})
     self._tamps = opt.x
     self.rnorm = opt.fun
     self._Egs = self.energy_feval(self._tamps)
@@ -70,7 +74,6 @@ def norm_grad_bfgs(self, residual, residual_gradient, tol = 1e-8):
     self.ejmin = ejmin
 
 def grad_solve(self, residual_gradient, rtol = 1e-6):
-
 
     """
     num_E = self.energy_feval(self._tamps).real

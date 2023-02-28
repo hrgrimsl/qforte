@@ -222,6 +222,92 @@ class UCCVQE(VQE, UCC):
 
         return grads
 
+    def rnorm_grad(self, params):
+        unique_ops = []
+        for i in self._tops:
+            if i not in unique_ops:
+                unique_ops.append(i)
+
+        Q = len(params)
+        qc = qforte.Computer(self._nqb)
+        qc.apply_circuit(self._Uprep)
+        r = [qc.get_coeff_vec()]
+        Ar = []
+        for i in range(0, Q):
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(params[i], self._pool_obj[self._tops[i]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            U, phase1 = trotterize(A, trotter_number = 1)
+            qc.apply_circuit(U)
+            r.append(qc.get_coeff_vec())
+
+            temp_qc = qforte.Computer(self._nqb)
+            temp_qc.set_coeff_vec(qc.get_coeff_vec())
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(1, self._pool_obj[self._tops[i]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            temp_qc.apply_operator(A)
+            Ar.append(temp_qc.get_coeff_vec())
+
+        qc = qforte.Computer(self._nqb)
+        qc.set_coeff_vec(r[-1])
+        qc.apply_operator(self._qb_ham)
+        Hr = [qc.get_coeff_vec()]
+        AHr = []
+        for i in reversed(range(0, Q)):
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(-params[i], self._pool_obj[self._tops[i]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            U, phase1 = trotterize(A, trotter_number = 1)
+            qc.apply_circuit(U)
+            Hr.append(qc.get_coeff_vec())
+            temp_qc = qforte.Computer(self._nqb)
+            temp_qc.set_coeff_vec(Hr[-1])
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(-1, self._pool_obj[self._tops[i]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            temp_qc.apply_operator(A)
+            AHr.append(temp_qc.get_coeff_vec())
+
+        resid = np.zeros(len(unique_ops), dtype = "complex_")
+        jac = np.zeros((len(unique_ops),Q), dtype = "complex_")
+
+        for j in range(0, len(unique_ops)):
+            qc = qforte.Computer(self._nqb)
+            qc.apply_circuit(self._Uprep)
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(1, self._pool_obj[unique_ops[j]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            qc.apply_operator(A)
+
+            jac[j,0] += (np.array(qc.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(AHr[Q-1], dtype = "complex_"))
+            for i in range(0, Q):
+                temp_pool = qforte.SQOpPool()
+                temp_pool.add(params[i], self._pool_obj[self._tops[i]][1])
+                A = temp_pool.get_qubit_operator('commuting_grp_lex')
+                U, phase1 = trotterize(A, trotter_number = 1)
+                qc.apply_circuit(U)
+                if i < Q-1:
+                    jac[j,i+1] += (np.array(qc.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(AHr[Q-i-2], dtype = "complex_"))
+            qc.apply_operator(self._qb_ham)
+            jac[j][Q-1] += (np.array(qc.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(Ar[Q-1], dtype = "complex_"))
+            for i in reversed(range(0, Q)):
+                temp_pool = qforte.SQOpPool()
+                temp_pool.add(-params[i], self._pool_obj[self._tops[i]][1])
+                A = temp_pool.get_qubit_operator('commuting_grp_lex')
+                U, phase1 = trotterize(A, trotter_number = 1)
+                qc.apply_circuit(U)
+                if i > 0:
+                    jac[j][i-1] += (np.array(qc.get_coeff_vec(), dtype = "complex_").conjugate())@(np.array(Ar[i-1], dtype = "complex_"))
+                
+            resid[j] = np.array(qc.get_coeff_vec(), dtype = "complex_").conjugate()@np.array(r[0], dtype = "complex")
+
+        J = np.array(jac, dtype = "complex_").real
+        r = np.array(resid, dtype = "complex_").real
+        return 2*J.T@r
+
+        jac = np
+
     def gradient_ary_feval(self, params):
         grads = self.measure_gradient(params)
 

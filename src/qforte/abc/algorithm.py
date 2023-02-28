@@ -9,6 +9,8 @@ import qforte as qf
 from qforte.utils.state_prep import *
 from qforte.utils.point_groups import sq_op_find_symmetry
 
+from qforte.utils.trotterization import trotterize
+
 class Algorithm(ABC):
     """A class that characterizes the most basic functionality for all
     other algorithms.
@@ -77,17 +79,19 @@ class Algorithm(ABC):
 
         if isinstance(self, qf.QPE) and hasattr(system, 'frozen_core'):
             if system.frozen_core + system.frozen_virtual > 0:
-                raise ValueError("QPE with frozen orbitals is not currently supported.")
+                raise ValueError(
+                    "QPE with frozen orbitals is not currently supported.")
 
         self._sys = system
         self._state_prep_type = state_prep_type
 
         if self._state_prep_type == 'occupation_list':
-            if(reference==None):
+            if(reference == None):
                 self._ref = system.hf_reference
             else:
                 if not (isinstance(reference, list)):
-                    raise ValueError("occupation_list reference must be list of 1s and 0s.")
+                    raise ValueError(
+                        "occupation_list reference must be list of 1s and 0s.")
                 self._ref = reference
 
             self._Uprep = build_Uprep(self._ref, state_prep_type)
@@ -100,13 +104,14 @@ class Algorithm(ABC):
             self._Uprep = reference
 
         else:
-            raise ValueError("QForte only suppors references as occupation lists and Circuits.")
-
+            raise ValueError(
+                "QForte only suppors references as occupation lists and Circuits.")
 
         self._nqb = len(self._ref)
         self._qb_ham = system.hamiltonian
         if self._qb_ham.num_qubits() != self._nqb:
-            raise ValueError(f"The reference has {self._nqb} qubits, but the Hamiltonian has {self._qb_ham.num_qubits()}. This is inconsistent.")
+            raise ValueError(
+                f"The reference has {self._nqb} qubits, but the Hamiltonian has {self._qb_ham.num_qubits()}. This is inconsistent.")
         try:
             self._hf_energy = system.hf_energy
         except AttributeError:
@@ -127,7 +132,6 @@ class Algorithm(ABC):
         self._n_classical_params = None
         self._n_cnot = None
         self._n_pauli_trm_measures = None
-
 
     @abstractmethod
     def print_options_banner(self):
@@ -181,19 +185,24 @@ class Algorithm(ABC):
         """Verifies that the concrete sub-class(es) define the required attributes.
         """
         if self._Egs is None:
-            raise NotImplementedError('Concrete Algorithm class must define self._Egs attribute.')
+            raise NotImplementedError(
+                'Concrete Algorithm class must define self._Egs attribute.')
 
 #         if self._Umaxdepth is None:
 #             raise NotImplementedError('Concrete Algorithm class must define self._Umaxdepth attribute.')
 
         if self._n_classical_params is None:
-            raise NotImplementedError('Concrete Algorithm class must define self._n_classical_params attribute.')
+            raise NotImplementedError(
+                'Concrete Algorithm class must define self._n_classical_params attribute.')
 
         if self._n_cnot is None:
-            raise NotImplementedError('Concrete Algorithm class must define self._n_cnot attribute.')
+            raise NotImplementedError(
+                'Concrete Algorithm class must define self._n_cnot attribute.')
 
         if self._n_pauli_trm_measures is None:
-            raise NotImplementedError('Concrete Algorithm class must define self._n_pauli_trm_measures attribute.')
+            raise NotImplementedError(
+                'Concrete Algorithm class must define self._n_pauli_trm_measures attribute.')
+
 
 class AnsatzAlgorithm(Algorithm):
     """A class that characterizes the most basic functionality for all
@@ -270,7 +279,8 @@ class AnsatzAlgorithm(Algorithm):
                     temp_sq_pool.add(sq_operator[0], sq_operator[1])
             self._pool_obj = temp_sq_pool
 
-        self._Nm = [len(operator.jw_transform().terms()) for _, operator in self._pool_obj]
+        self._Nm = [len(operator.jw_transform().terms())
+                    for _, operator in self._pool_obj]
 
     def measure_energy(self, Ucirc):
         """
@@ -307,7 +317,7 @@ class AnsatzAlgorithm(Algorithm):
             irreps = list(range(len(self._sys.point_group[1])))
             if kwargs['irrep'] is None:
                 print('\nWARNING: The {0} point group was detected, but no irreducible representation was specified.\n'
-                        '         Proceeding with totally symmetric.\n'.format(self._sys.point_group[0].capitalize()))
+                      '         Proceeding with totally symmetric.\n'.format(self._sys.point_group[0].capitalize()))
                 self._irrep = 0
             elif kwargs['irrep'] in irreps:
                 self._irrep = kwargs['irrep']
@@ -315,12 +325,62 @@ class AnsatzAlgorithm(Algorithm):
                 raise ValueError("{0} is not an irreducible representation of {1}.\n"
                                  "               Choose one of {2} corresponding to the\n"
                                  "               {3} irreducible representations of {1}".format(kwargs['irrep'],
-                                     self._sys.point_group[0].capitalize(),
+                                                                                                self._sys.point_group[0].capitalize(
+                                 ),
                                      irreps,
                                      self._sys.point_group[1]))
         elif kwargs['irrep'] is not None:
             print('\nWARNING: Point group information not found.\n'
-                    '         Ignoring "irrep" and proceeding without symmetry.\n')
+                  '         Ignoring "irrep" and proceeding without symmetry.\n')
+
+    def rnorm_cb(self, params):
+        print(f"Current RNORM: {np.sqrt(self.rnorm2(params))}")
+
+    def rnorm2(self, params):
+        projectors = []
+        unique_ops = []
+        r = []
+
+        for i in self._tops:
+            if i not in unique_ops:
+                unique_ops.append(i)
+
+        qc_ref = qforte.Computer(self._nqb)
+        qc_ref.apply_circuit(self._Uprep)
+
+        for i in range(0, len(self._tops)):
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(params[i], self._pool_obj[self._tops[i]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            U, phase1 = trotterize(A)
+            qc_ref.apply_circuit(U)
+            
+        qc_ref.apply_operator(self._qb_ham)
+
+
+
+        for j in unique_ops:
+            qc_temp = qforte.Computer(self._nqb)
+            qc_temp.apply_circuit(self._Uprep)
+            temp_pool = qforte.SQOpPool()
+
+            temp_pool.add(1, self._pool_obj[j][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            qc_temp.apply_operator(A)
+            for i in range(0, len(self._tops)):
+                temp_pool = qforte.SQOpPool()
+                temp_pool.add(params[i], self._pool_obj[self._tops[i]][1])
+                A = temp_pool.get_qubit_operator('commuting_grp_lex')
+                U, phase1 = trotterize(A)
+                qc_temp.apply_circuit(U)
+
+            res = np.array(qc_ref.get_coeff_vec())@np.array(qc_temp.get_coeff_vec())
+            r.append(res)
+        return np.linalg.norm(np.array(r))**2
+            
+
+
+
 
     def energy_feval(self, params):
         """

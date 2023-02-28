@@ -83,8 +83,10 @@ class ADAPTVQE(UCCVQE):
             optimizer='BFGS',
             use_analytic_grad = True,
             use_cumulative_thresh = False,
-            add_equiv_ops = False):
+            add_equiv_ops = False,
+            pqe_break = False):
 
+        self._pqe_break = pqe_break
         self._avqe_thresh = avqe_thresh
         self._opt_thresh = opt_thresh
         self._adapt_maxiter = adapt_maxiter
@@ -152,7 +154,7 @@ class ADAPTVQE(UCCVQE):
                 print('\ntamplitudes for tops: \n', self._tamps)
 
             self.solve()
-
+            
             if(self._verbose):
                 print('\ntamplitudes for tops post solve: \n', np.real(self._tamps))
 
@@ -284,6 +286,19 @@ class ADAPTVQE(UCCVQE):
             # account for gradient evaluations
             for m in self._tops:
                 self._n_pauli_measures_k += self._Nm[m] * self._Nl * res.njev
+
+            if len(self._tops) > 1 and self._pqe_break == True and self._tops[-2] == self._tops[-1]:
+                print("Using PQE to try to free ADAPT from a gradient trough...")
+                res = minimize(self.rnorm2, res.x, jac = self.rnorm_grad, method = self._optimizer, options = opts, callback = self.rnorm_cb)
+                res.fun = self.energy_feval(res.x)
+
+                # account for energy evaluations
+                self._n_pauli_measures_k += self._Nl * res.nfev
+
+                # account for gradient evaluations
+                for m in self._tops:
+                    self._n_pauli_measures_k += self._Nm[m] * self._Nl * res.njev
+
 
         else:
             print('  \n--> Begin opt with grad estimated using first-differences:')
