@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 import qforte as qf
 from qforte.utils.state_prep import *
 from qforte.utils.point_groups import sq_op_find_symmetry
-
+import copy
 from qforte.utils.trotterization import trotterize
 
 class Algorithm(ABC):
@@ -333,17 +333,43 @@ class AnsatzAlgorithm(Algorithm):
             print('\nWARNING: Point group information not found.\n'
                   '         Ignoring "irrep" and proceeding without symmetry.\n')
 
+    def fci(self):
+        H = np.zeros((2**self._nqb,2**self._nqb))
+        for i in range(0, 2**self._nqb):
+            ivec = np.zeros(2**self._nqb)
+            ivec[i] = 1
+            qc = qforte.Computer(self._nqb)
+            qc.set_coeff_vec(list(ivec))
+            qc.apply_operator(self._qb_ham)
+            Hivec = qc.get_coeff_vec()
+            for j in range(0, len(Hivec)):
+                H[i,j] = Hivec[j].real
+        w, v = np.linalg.eigh(H)
+        self.fci_Es = w
+        self.fci_wfns = v
+        return(w, v)
+
+    def fci_overlap(self, params):
+        Ucirc = self.build_Uvqc(amplitudes=params)
+        qc = qforte.Computer(self._nqb)
+        qc.apply_circuit(Ucirc)
+        wfn = np.array(qc.get_coeff_vec(), dtype = "complex_").real
+        return np.amax(abs(np.array([wfn@self.fci_wfns[:,i] for i in range(2**self._nqb)])))
+
     def rnorm_cb(self, params):
-        print(f"Current RNORM: {np.sqrt(self.rnorm2(params))}")
+        print(f"Current RNORM: {np.sqrt(self.rnorm2(params))}", flush = True)
 
     def rnorm2(self, params):
         projectors = []
         unique_ops = []
         r = []
 
+
         for i in self._tops:
             if i not in unique_ops:
                 unique_ops.append(i)
+
+        #unique_ops = [i for i in range(0, len(self._pool_obj))] 
 
         qc_ref = qforte.Computer(self._nqb)
         qc_ref.apply_circuit(self._Uprep)
@@ -356,8 +382,6 @@ class AnsatzAlgorithm(Algorithm):
             qc_ref.apply_circuit(U)
             
         qc_ref.apply_operator(self._qb_ham)
-
-
 
         for j in unique_ops:
             qc_temp = qforte.Computer(self._nqb)
@@ -378,9 +402,134 @@ class AnsatzAlgorithm(Algorithm):
             r.append(res)
         return np.linalg.norm(np.array(r))**2
             
+    def variance_cb(self, params):
+        print(f'Variance: {self.variance_feval(params)}', flush = True)
 
+    def variance_feval(self, params):
+        Ucirc = self.build_Uvqc(amplitudes = params)
+        Energy = self.measure_energy(Ucirc).real
+        self._curr_energy = Energy
+        qc = qforte.Computer(self._nqb)
+        qc.apply_circuit(Ucirc)
+        qc.apply_operator(self._qb_ham)
+        H2 = np.array(qc.get_coeff_vec(), dtype = "complex")
+        H2 = H2.real@H2.real
+        return H2 - Energy**2
 
+    def variance_grad(self, params):
 
+        
+
+        Ucirc = self.build_Uvqc(amplitudes = params)
+        Energy = self.measure_energy(Ucirc).real
+
+        rqc = qforte.Computer(self._nqb)
+        rqc.apply_circuit(Ucirc)
+
+        Hlqc = qforte.Computer(self._nqb)
+        Hlqc.apply_circuit(Ucirc)
+        Hlqc.apply_operator(self._qb_ham)
+
+        H2lqc = qforte.Computer(self._nqb)
+        H2lqc.apply_circuit(Ucirc)
+        H2lqc.apply_operator(self._qb_ham)
+        H2lqc.apply_operator(self._qb_ham)
+        
+        var_grad = []
+
+        for i in reversed(range(0, len(params))):
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(-params[i], self._pool_obj[self._tops[i]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            U, phase1 = trotterize(A)
+            rqc.apply_circuit(U)
+            Hlqc.apply_circuit(U)
+            H2lqc.apply_circuit(U)
+
+            Arqc = qforte.Computer(self._nqb)
+            Arqc.set_coeff_vec(rqc.get_coeff_vec())
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(1, self._pool_obj[self._tops[i]][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            Arqc.apply_operator(A)
+
+            Ar = np.array(Arqc.get_coeff_vec(), dtype = "complex").real
+            Hl = np.array(Hlqc.get_coeff_vec(), dtype = "complex").real
+            H2l = np.array(H2lqc.get_coeff_vec(), dtype = "complex").real
+            var_grad.append(2*H2l@Ar - 4*Energy*(Hl@Ar))
+
+        var_grad.reverse()
+
+        #Numerical test
+        '''
+        print("Analytical grad:")
+        print(var_grad)
+        h = 1e-3
+        num_grad = []
+        for i in range(0, len(params)):
+            tplus = copy.deepcopy(params)
+            tplus[i] += h
+            tminus = copy.deepcopy(params)
+            tminus[i] -= h
+            num_grad.append((self.variance_feval(tplus)-self.variance_feval(tminus))/(2*h))
+        print("Numerical grad:")
+        print(num_grad)
+        exit()
+        '''
+        return np.array(var_grad)
+
+    def measure_var_grad(self):
+
+            
+
+        grads = []
+        Ucirc = self.build_Uvqc(amplitudes = self._tamps)
+        Energy = self.measure_energy(Ucirc)
+        qc = qforte.Computer(self._nqb)
+        qc.apply_circuit(Ucirc)
+        qc.apply_operator(self._qb_ham)
+        Hpsi = np.array(qc.get_coeff_vec(), dtype = "complex_").real
+
+        qc = qforte.Computer(self._nqb)
+        qc.apply_circuit(Ucirc)
+        qc.apply_operator(self._qb_ham)
+        qc.apply_operator(self._qb_ham)
+        H2psi = np.array(qc.get_coeff_vec(), dtype = "complex_").real
+        
+        qc = qforte.Computer(self._nqb)
+        qc.apply_circuit(Ucirc)
+        psi = np.array(qc.get_coeff_vec(), dtype = "complex_").real
+
+        for i in range(0, len(self._pool_obj)):
+            iqc = qforte.Computer(self._nqb)
+            iqc.set_coeff_vec(qc.get_coeff_vec())
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(1, self._pool_obj[i][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            iqc.apply_operator(A)
+            Apsi = np.array(iqc.get_coeff_vec(), dtype = "complex_").real
+            grads.append(2*H2psi@Apsi - 4*Energy*Hpsi@Apsi)
+
+        #Numerical Test
+        '''
+        h = 1e-4
+        ti = list(copy.deepcopy(self._tamps))
+        ti.append(0)
+        tplus = np.array(copy.deepcopy(ti))
+        tplus[-1] += h
+        tminus = np.array(copy.deepcopy(ti))
+        tminus[-1] -= h
+        num_g = []
+        for i in range(0, len(self._pool_obj)):
+            self._tops.append(i)
+            fplus = self.variance_feval(tplus)
+            fminus = self.variance_feval(tminus)
+            num_g.append((fplus-fminus)/(2*h))
+            self._tops.pop()
+        print("Error in gradient")
+        print(np.array(grads)-np.array(num_g))
+        '''
+        return np.array(grads)
 
     def energy_feval(self, params):
         """

@@ -335,7 +335,7 @@ class UCCVQE(VQE, UCC):
 
         # else:
         dE = self._curr_energy - self._prev_energy
-        print(f'     {self._k_counter:7}        {self._curr_energy:+12.10f}      {dE:+12.10f}      {self._res_vec_evals:4}        {self._res_m_evals:6}       {self._curr_grad_norm:+12.10f}')
+        print(f'     {self._k_counter:7}        {self._curr_energy:+12.16f}      {dE:+12.16f}      {self._res_vec_evals:4}        {self._res_m_evals:6}       {self._curr_grad_norm:+12.16f}', flush = True)
 
         if (self._print_summary_file):
             f = open("summary.dat", "a", buffering=1)

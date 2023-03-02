@@ -84,9 +84,13 @@ class ADAPTVQE(UCCVQE):
             use_analytic_grad = True,
             use_cumulative_thresh = False,
             add_equiv_ops = False,
-            pqe_break = False):
+            pqe_break = False,
+            var_crit = False,
+            var_break = False):
 
+        self._var_crit = var_crit
         self._pqe_break = pqe_break
+        self._var_break = var_break
         self._avqe_thresh = avqe_thresh
         self._opt_thresh = opt_thresh
         self._adapt_maxiter = adapt_maxiter
@@ -126,7 +130,7 @@ class ADAPTVQE(UCCVQE):
         self.print_options_banner()
 
         self.fill_pool()
-
+        self.fci()
         if self._verbose:
             print('\n\n-------------------------------------')
             print('   Second Quantized Operator Pool')
@@ -274,22 +278,34 @@ class ADAPTVQE(UCCVQE):
         if self._use_analytic_grad:
             print('  \n--> Begin opt with analytic gradient:')
             print(f" Initial guess energy:              {init_gues_energy:+12.10f}")
-            res =  minimize(self.energy_feval, x0,
+            if len(self._tops) < 2 or self._pqe_break == False or self._tops[-2] != self._tops[-1]:
+                if self._var_crit == False:
+                    res =  minimize(self.energy_feval, x0,
                                     method=self._optimizer,
                                     jac=self.gradient_ary_feval,
                                     options=opts,
                                     callback=self.report_iteration)
+                elif self._var_crit == True:
+                    res =  minimize(self.variance_feval, x0,
+                                    method=self._optimizer,
+                                    jac=self.variance_grad,
+                                    options=opts,
+                                    callback=self.variance_cb)
 
-            # account for energy evaluations
-            self._n_pauli_measures_k += self._Nl * res.nfev
+                # account for energy evaluations
+                self._n_pauli_measures_k += self._Nl * res.nfev
 
-            # account for gradient evaluations
-            for m in self._tops:
-                self._n_pauli_measures_k += self._Nm[m] * self._Nl * res.njev
+                # account for gradient evaluations
+                for m in self._tops:
+                    self._n_pauli_measures_k += self._Nm[m] * self._Nl * res.njev
 
             if len(self._tops) > 1 and self._pqe_break == True and self._tops[-2] == self._tops[-1]:
+                self._tops.pop()
+                x0.pop()
+
+                opts['gtol'] = .001*self._opt_thresh
                 print("Using PQE to try to free ADAPT from a gradient trough...")
-                res = minimize(self.rnorm2, res.x, jac = self.rnorm_grad, method = self._optimizer, options = opts, callback = self.rnorm_cb)
+                res = minimize(self.rnorm2, x0, jac = self.rnorm_grad, method = self._optimizer, options = opts, callback = self.rnorm_cb)
                 res.fun = self.energy_feval(res.x)
 
                 # account for energy evaluations
@@ -299,10 +315,25 @@ class ADAPTVQE(UCCVQE):
                 for m in self._tops:
                     self._n_pauli_measures_k += self._Nm[m] * self._Nl * res.njev
 
+            if len(self._tops) > 1 and self._var_break == True and self._tops[-2] == self._tops[-1]:
+                self._tops.pop()
+                x0.pop()
+
+                opts['gtol'] = .001*self._opt_thresh
+                print("Using Variance Minimization to try to free ADAPT from a gradient trough...")
+                res = minimize(self.variance_feval, x0, jac = self.variance_grad, method = self._optimizer, options = opts, callback = self.variance_cb)
+                res.fun = self.energy_feval(res.x)
+
+                # account for energy evaluations
+                self._n_pauli_measures_k += self._Nl * res.nfev
+
+                # account for gradient evaluations
+                for m in self._tops:
+                    self._n_pauli_measures_k += self._Nm[m] * self._Nl * res.njev
 
         else:
             print('  \n--> Begin opt with grad estimated using first-differences:')
-            print(f" Initial guess energy:              {init_gues_energy:+12.10f}")
+            print(f" Initial guess energy:              {init_gues_energy:+12.16f}")
             res =  minimize(self.energy_feval, x0,
                                     method=self._optimizer,
                                     options=opts,
@@ -312,12 +343,15 @@ class ADAPTVQE(UCCVQE):
 
         if(res.success):
             print('  => Minimization successful!')
-            print(f'  => Minimum Energy: {res.fun:+12.10f}')
+            print(f'  => Minimum Energy: {res.fun:+12.16f}')
 
         else:
             print('  => WARNING: minimization result may not be tightly converged.')
-            print(f'  => Minimum Energy: {res.fun:+12.10f}')
+            print(f'  => Minimum Energy: {res.fun:+12.16f}')
+        
 
+        print(f"FCI Overlap: {self.fci_overlap(res.x)}") 
+          
         self._energies.append(res.fun)
         self._results.append(res)
         self._tamps = list(res.x)
@@ -339,8 +373,11 @@ class ADAPTVQE(UCCVQE):
         if self._verbose:
             print('     op index (m)     N pauli terms              Gradient            Tmu  ')
             print('  ------------------------------------------------------------------------------')
+        if self._var_crit == False:
+            grads = self.measure_gradient3()
+        elif self._var_crit == True:
+            grads = self.measure_var_grad()
 
-        grads = self.measure_gradient3()
 
         for m, grad_m in enumerate(grads):
             # refers to number of times sigma_y must be measured in "strategies for UCC" grad eval circuit
@@ -366,6 +403,7 @@ class ADAPTVQE(UCCVQE):
 
         self._curr_grad_norm = curr_norm
         self._grad_norms.append(curr_norm)
+
 
         self.conv_status()
 
