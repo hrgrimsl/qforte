@@ -356,6 +356,35 @@ class AnsatzAlgorithm(Algorithm):
         wfn = np.array(qc.get_coeff_vec(), dtype = "complex_").real
         return np.amax(abs(np.array([wfn@self.fci_wfns[:,i] for i in range(2**self._nqb)])))
 
+    def gs_overlap(self, params):
+        Ucirc = self.build_Uvqc(amplitudes=params)
+        qc = qforte.Computer(self._nqb)
+        qc.apply_circuit(Ucirc)
+        wfn = np.array(qc.get_coeff_vec(), dtype = "complex_").real
+        return 1 - (self.fci_wfns[:,0]@wfn)**2
+
+    def overlap_cb(self, params):
+        print(f"Overlap^2: {1-self.gs_overlap(params)}")
+
+    def measure_overlap_gradient(self):
+        Ucirc = self.build_Uvqc(amplitudes=self._tamps)
+        qc = qforte.Computer(self._nqb)
+        qc.apply_circuit(Ucirc)
+        wfn = np.array(qc.get_coeff_vec(), dtype = "complex_").real
+        proj = np.outer(self.fci_wfns[:,0], self.fci_wfns[:,0])
+        proj_wfn = proj@wfn
+        grads = []
+        for i in range(0, len(self._pool_obj)):
+            qc = qforte.Computer(self._nqb)
+            qc.set_coeff_vec(list(wfn))
+            temp_pool = qforte.SQOpPool()
+            temp_pool.add(1, self._pool_obj[i][1])
+            A = temp_pool.get_qubit_operator('commuting_grp_lex')
+            qc.apply_operator(A)
+            Awfn = np.array(qc.get_coeff_vec(), dtype = "complex_").real
+            grads.append(-2*proj_wfn@Awfn)
+        return np.array(grads)
+
     def rnorm_cb(self, params):
         print(f"Current RNORM: {np.sqrt(self.rnorm2(params))}", flush = True)
 
@@ -417,9 +446,6 @@ class AnsatzAlgorithm(Algorithm):
         return H2 - Energy**2
 
     def variance_grad(self, params):
-
-        
-
         Ucirc = self.build_Uvqc(amplitudes = params)
         Energy = self.measure_energy(Ucirc).real
 

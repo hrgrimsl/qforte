@@ -86,8 +86,10 @@ class ADAPTVQE(UCCVQE):
             add_equiv_ops = False,
             pqe_break = False,
             var_crit = False,
+            overlap_crit = False,
             var_break = False):
 
+        self._overlap_crit = overlap_crit
         self._var_crit = var_crit
         self._pqe_break = pqe_break
         self._var_break = var_break
@@ -279,7 +281,14 @@ class ADAPTVQE(UCCVQE):
             print('  \n--> Begin opt with analytic gradient:')
             print(f" Initial guess energy:              {init_gues_energy:+12.10f}")
             if len(self._tops) < 2 or self._pqe_break == False or self._tops[-2] != self._tops[-1]:
-                if self._var_crit == False:
+                if self._overlap_crit == True:
+                    res =  minimize(self.gs_overlap, x0,
+                                    method=self._optimizer,
+                                    jac=None,
+                                    options=opts,
+                                    callback=self.overlap_cb)
+                    res.fun = self.energy_feval(res.x)
+                elif self._var_crit == False:
                     res =  minimize(self.energy_feval, x0,
                                     method=self._optimizer,
                                     jac=self.gradient_ary_feval,
@@ -291,6 +300,9 @@ class ADAPTVQE(UCCVQE):
                                     jac=self.variance_grad,
                                     options=opts,
                                     callback=self.variance_cb)
+                    res.fun = self.energy_feval(res.x)
+
+
 
                 # account for energy evaluations
                 self._n_pauli_measures_k += self._Nl * res.nfev
@@ -373,7 +385,9 @@ class ADAPTVQE(UCCVQE):
         if self._verbose:
             print('     op index (m)     N pauli terms              Gradient            Tmu  ')
             print('  ------------------------------------------------------------------------------')
-        if self._var_crit == False:
+        if self._overlap_crit == True:
+            grads = self.measure_overlap_gradient()
+        elif self._var_crit == False:
             grads = self.measure_gradient3()
         elif self._var_crit == True:
             grads = self.measure_var_grad()
