@@ -86,7 +86,7 @@ class CircuitOpt():
             self._ansatz = valid_sequences[i]
             print("CNOT sequence:")
             print(valid_sequences[i])
-            res = basinhopping(self.energy, x0, disp=True)
+            res = basinhopping(self.energy, x0, disp=True, T = 10, stepsize = math.pi)
             #res = dual_annealing(self.energy, bounds, x0 = x0, callback = self.cb)
             # res = minimize(self.energy, x0, method = 'Nelder-Mead', options = {'xatol': 1e-8, 'fatol': 1e-10, 'maxiter': 1000000, 'disp': True})
             print(f"Energy: {res.fun}")
