@@ -28,14 +28,20 @@ class CircuitOpt():
         self._nqb = len(self._ref)
         self._qb_ham = system.hamiltonian
         self._hf_energy = system.hf_energy
+        self._fci_energy = system.fci_energy
         self._Egs = None
         # ansatz is just a list of CNOTs
         self._ansatz = []
         # params of the single qubit gates
         self._params = []
 
-    def best_circuit(self, n_cnots):
-        x0 = np.zeros(3*self._nqb*n_cnots + 9)
+    def best_circuit(self, n_cnots, guess = None):
+        if guess is None:
+            x0 = np.zeros(3*self._nqb + 6*n_cnots)
+        else:
+            x0 = guess
+
+
         best_E = self._hf_energy
         best_ansatz = None
         pairs = []
@@ -86,18 +92,22 @@ class CircuitOpt():
             self._ansatz = valid_sequences[i]
             print("CNOT sequence:")
             print(valid_sequences[i])
-            res = basinhopping(self.energy, x0, disp=True, T = 10, stepsize = math.pi)
+            res = shgo(self.energy, bounds, callback = self.cb, options = {'disp': True})
+            #res = basinhopping(self.energy, x0, disp = True, T = 10, stepsize = math.pi, niter = 1000)
             #res = dual_annealing(self.energy, bounds, x0 = x0, callback = self.cb)
             # res = minimize(self.energy, x0, method = 'Nelder-Mead', options = {'xatol': 1e-8, 'fatol': 1e-10, 'maxiter': 1000000, 'disp': True})
             print(f"Energy: {res.fun}")
             if res.fun < best_E:
                 best_E = res.fun
                 best_ansatz = valid_sequences[i]
+                best_x = res.x
+            if res.fun < self._fci_energy + 1e-9:
+                return best_E, best_ansatz, best_x
             print(f"Best energy so far: {best_E}")
             print(f"Error:              {best_E - self._sys.fci_energy}")
         print(f"\nBest Energy: {best_E}")
         print(f"\nBest Sequence: {best_ansatz}")
-        return best_E, best_ansatz, res.x
+        return best_E, best_ansatz, best_x
 
     def cb(self, params, e, context):
         print(e)
@@ -109,6 +119,8 @@ class CircuitOpt():
             qc.apply_gate(qf.gate('Rz', i, params[3*i+0]))
             qc.apply_gate(qf.gate('Rx', i, params[3*i+1]))
             qc.apply_gate(qf.gate('Rz', i, params[3*i+2]))
+
+
         for i in range(0, len(self._ansatz)):
             qc.apply_gate(
                 qf.gate('cX', self._ansatz[i][0], self._ansatz[i][1]))
@@ -124,6 +136,8 @@ class CircuitOpt():
                 qf.gate('Rx', self._ansatz[i][1], params[3*self._nqb + 6*i + 4]))
             qc.apply_gate(
                 qf.gate('Rz', self._ansatz[i][1], params[3*self._nqb + 6*i + 5]))
+
+
         state = np.array(qc.get_coeff_vec(), dtype="complex_").real
         qc.apply_operator(self._qb_ham)
         hstate = np.array(qc.get_coeff_vec(), dtype="complex_").real
