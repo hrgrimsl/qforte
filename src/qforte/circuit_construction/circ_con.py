@@ -3,7 +3,7 @@ Algorithms for constructing and optimizing optimal circuits for VQE or whatever.
 """
 
 import qforte as qf
-
+import copy
 from qforte.utils.transforms import *
 from qforte.utils.state_prep import *
 from qforte.utils.trotterization import *
@@ -43,6 +43,7 @@ class CircuitOpt():
 
 
         best_E = self._hf_energy
+        best_x = None
         best_ansatz = None
         pairs = []
         for ctrl in range(0, self._nqb):
@@ -87,13 +88,14 @@ class CircuitOpt():
             if valid == True:
                 valid_sequences.append(sequences[i])
         print(f"{len(valid_sequences)} valid sequences out of {len(sequences)}.")
-        bounds = [[-math.pi, math.pi] for i in x0]
+        bounds = [(0, 2*math.pi) for i in x0]
+
         for i in range(0, len(valid_sequences)):
             self._ansatz = valid_sequences[i]
             print("CNOT sequence:")
             print(valid_sequences[i])
-            res = shgo(self.energy, bounds, callback = self.cb, options = {'disp': True})
-            #res = basinhopping(self.energy, x0, disp = True, T = 10, stepsize = math.pi, niter = 1000)
+            #res = direct(self.energy, bounds, callback = self.cb, locally_biased = False, f_min_rtol = 1e-10)
+            res = basinhopping(self.energy, x0, disp = True, T = 100, stepsize = 4*math.pi, niter = 20000)
             #res = dual_annealing(self.energy, bounds, x0 = x0, callback = self.cb)
             # res = minimize(self.energy, x0, method = 'Nelder-Mead', options = {'xatol': 1e-8, 'fatol': 1e-10, 'maxiter': 1000000, 'disp': True})
             print(f"Energy: {res.fun}")
@@ -109,8 +111,9 @@ class CircuitOpt():
         print(f"\nBest Sequence: {best_ansatz}")
         return best_E, best_ansatz, best_x
 
-    def cb(self, params, e, context):
-        print(e)
+    #def cb(self, params, e, context, convergence = None):
+    def cb(self, params, convergence = None):
+        print(self.energy(params))
 
     def energy(self, params):
         qc = qf.Computer(self._nqb)
@@ -142,4 +145,5 @@ class CircuitOpt():
         qc.apply_operator(self._qb_ham)
         hstate = np.array(qc.get_coeff_vec(), dtype="complex_").real
         E = state@hstate
+
         return E

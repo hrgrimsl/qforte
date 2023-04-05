@@ -62,8 +62,14 @@ def create_psi_mol(**kwargs):
     psi4.core.set_output_file(kwargs['filename']+'.out', False)
 
     p4_geom_str =  f"{int(charge)}  {int(multiplicity)}"
-    for geom_line in mol_geometry:
-        p4_geom_str += f"\n{geom_line[0]}  {geom_line[1][0]}  {geom_line[1][1]}  {geom_line[1][2]}"
+    try:
+        for geom_line in mol_geometry.split("\n"):
+            p4_geom_str += "\n"
+            for i in range(0, len(geom_line.split())):
+                p4_geom_str += f"{geom_line.split()[i]} "
+    except:
+        print("Need to add case for list-style geom")
+    #p4_geom_str += f"\n{geom_line[0]}  {geom_line[1][0]}  {geom_line[1][1]}  {geom_line[1][2]}"
     p4_geom_str += f"\nsymmetry {kwargs['symmetry']}"
     p4_geom_str += f"\nunits angstrom"
 
@@ -87,7 +93,7 @@ def create_psi_mol(**kwargs):
 
     # run psi4 caclulation
     p4_Escf, p4_wfn = psi4.energy('SCF', return_wfn=True)
-
+    print(f"SCF Energy: {p4_Escf}")
     # Run additional computations requested by the user
     if kwargs['run_mp2']:
         qforte_mol.mp2_energy = psi4.energy('MP2')
@@ -108,6 +114,12 @@ def create_psi_mol(**kwargs):
     mints = psi4.core.MintsHelper(p4_wfn.basisset())
 
     C = p4_wfn.Ca_subset("AO", "ALL")
+    np_C = np.array(C)
+    print("C:")
+    print(np_C[:, [3,4]])
+    np_C[:, [3,4]] = np_C[:, [4,3]]
+    print(np_C[:, [3,4]])
+    C = psi4.core.Matrix.from_array(np_C)
 
     scalars = p4_wfn.scalar_variables()
 
@@ -166,7 +178,8 @@ def create_psi_mol(**kwargs):
 
     # Make hf_reference
     hf_reference = [1] * (nel - 2 * frozen_core) + [0] * (2 * (nmo - frozen_virtual) - nel)
-
+    print(hf_reference)
+    print(len(hf_reference))
     # Build second quantized Hamiltonian
     Hsq = qforte.SQOperator()
     Hsq.add(p4_Enuc_ref + frozen_core_energy, [], [])
