@@ -45,7 +45,7 @@ class Gibbs_ADAPT(UCCVQE):
         
 
 
-    def compute_free_energy(self, x):
+    def compute_free_energy(self, x, return_all = False):
         #Get energy expectation values. 
         U = self.build_Uvqc(amplitudes = x)
         E, A, ops = qf.ritz_eigh(self._nqb, self._qb_ham, U, [], verbose = False)
@@ -54,72 +54,49 @@ class Gibbs_ADAPT(UCCVQE):
         
         Q = np.sum(q)
         p = []
-        for state in q:
-            if abs(state) > 0:
-                p.append(state/Q)
-            else:
-                p.append(0)
+        p = q/Q
         
         U = E.T@p
-        
+        p = np.array([i for i in p if i > 0])
+        S = -p.T@np.log(p)
+        ''' 
         S = (1/self.beta)*(-np.sum(p)*np.log(Q))
         for i in range(len(q)):
             if abs(q[i]) > 0:
                 S += (1/self.beta*p[i]*np.log(q[i]))
-        
-        #S = (1/self.beta)*(p.T@np.log(q) - np.sum(p)*np.log(Q))
-        self.current_energy = U + S
+        '''
+        F = U - (1/self.beta)*S
+        self.current_U = U
+        self.current_S = S
+        if return_all == True:
+            return U, S, F
         return U + S
 
     def compute_free_energy_gradient(self, x):
         #Get energy expectation values.
-        
         U = self.build_Uvqc(amplitudes = x)
         E, A, ops = qf.ritz_eigh(self._nqb, self._qb_ham, U, [], verbose = False)
         E = np.array(E).real
         A = A.real 
-        
         dH = self.measure_gradient(params=x, coupling = True)
         dE = np.einsum('ij,jku,ki->iu', A.T, dH, A)
-        
-        
         q = np.exp(-self.beta * (E - np.ones(E.shape)*E[0]))
         Q = np.sum(q)
         p = q/Q 
-
-        dF = np.einsum('i,iu->u', p, dE)
-        '''
-        print(f"Analytical gradient: {dF}")
-        num_grad = []
-        h = 1e-5
-        for i in range(len(dF)): 
-            forw = copy.copy(x)
-            rev = copy.copy(x)
-            forw[i] += h
-            rev[i] -= h
-            forw = self.compute_free_energy(forw)
-            rev = self.compute_free_energy(rev)
-            num_grad.append((forw-rev)/(2*h))
-        num_grad = np.array(num_grad)
-        print(f"Numerical gradient: {num_grad}")
-        '''
+        dF = np.einsum('i,iu->u', p, dE)        
         return dF
 
     def compute_addition_gradient(self):
-
         #Get energy expectation values.        
         U = self.build_Uvqc(amplitudes = self._tamps)
         E, A, ops = qf.ritz_eigh(self._nqb, self._qb_ham, U, [], verbose = False)
         A = A.real
         dH = self.measure_gradient3(coupling = True)
         dE = np.einsum('ij,jku,ki->iu', A.T, dH, A)
-        
         q = np.exp(-self.beta * (E - np.ones(E.shape)*E[0]))
         Q = np.sum(q)
         p = q/Q 
-
-        dF = np.einsum('i,iu->u', p, dE)        
-        
+        dF = np.einsum('i,iu->u', p, dE)                
         return dF
 
     def free_energy_vqe(self, x0):
@@ -140,25 +117,27 @@ class Gibbs_ADAPT(UCCVQE):
 
     def gibbs_adapt_vqe(self, max_depth = 20):
         adapt_iteration = 0
-
         Done = False
         while Done == False:
             adapt_iteration += 1 
             add_grad = self.compute_addition_gradient()
             idx = np.argsort(-abs(add_grad))
-            
             add_grad = add_grad[idx]
             print(f"Adding operator {idx[0]} with gradient {add_grad[0]}")
             self._tops.append(idx[0])
             self._tamps.append(0.0)
             print(f"TOPS: {self._tops}") 
-            E, self._tamps = self.free_energy_vqe(self._tamps)
-            self.history.append((E, self._tamps))                
-            print(f"ADAPT Energy {adapt_iteration}: {E}", flush = True)
+            F, self._tamps = self.free_energy_vqe(self._tamps)
+            self.compute_free_energy(self._tamps) 
+            self.history.append((adapt_iteration, F, self.current_U, self.current_S, self._tamps))
+            print("Iter     U       S       F")
+            for point in self.history:
+                print(f"{point[0]}  {point[1]}  {point[2]}  {point[3]}", flush = True) 
+            
             if len(self._tops) == max_depth:
                 Done = True
 
-        return E, self._tamps
+        return F, self._tamps
 
     def callback(self, x):
         self.vqe_iteration += 1
