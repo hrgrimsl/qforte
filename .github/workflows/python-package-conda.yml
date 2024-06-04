@@ -23,6 +23,7 @@ jobs:
 
     - name: Install dependencies
       run: |
+        conda update conda
         conda env update --file environment.yml --name base
 
     - name: Compile
