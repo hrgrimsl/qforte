@@ -79,7 +79,7 @@ class Gibbs_ADAPT(UCCVQE):
         E = np.array(E).real
         A = A.real 
         
-        dH = self.measure_gradient(params=x, couplings = True)
+        dH = self.measure_gradient(params=x, coupling = True)
         dE = np.einsum('ij,jku,ki->iu', A.T, dH, A)
         
         

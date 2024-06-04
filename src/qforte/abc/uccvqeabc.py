@@ -114,7 +114,7 @@ class UCCVQE(VQE, UCC):
 
         return np.real(grads)
 
-    def measure_gradient(self, params=None, return_individual = False, couplings = False):
+    def measure_gradient(self, params=None, return_individual = False, coupling = False):
         """ Returns the disentangled (factorized) UCC gradient, using a
         recursive approach.
 
@@ -197,7 +197,7 @@ class UCCVQE(VQE, UCC):
                 qc_psi.set_coeff_vec(psi_i)
                 Kmu_prev = Kmu
 
-        elif couplings == False:
+        elif coupling == False:
             Kmus = []
             Umus = []
             grads = np.zeros((len(self._Uprep), len(self._tops)))
@@ -376,13 +376,14 @@ class UCCVQE(VQE, UCC):
                         qc_psi.set_coeff_vec(psi_i)
                         Kmu_prev = Kmu
 
+            np.testing.assert_allclose(np.imag(grads), np.zeros_like(grads), atol=1e-12)
             return grads    
 
         np.testing.assert_allclose(np.imag(grads), np.zeros_like(grads), atol=1e-12)
         
         return grads
 
-    def measure_gradient3(self, return_individual = False, coupling = True):
+    def measure_gradient3(self, return_individual = False, coupling = False):
         """ Calculates 2 Re <Psi|H K_mu |Psi> for all K_mu in self._pool_obj.
         For antihermitian K_mu, this is equal to <Psi|[H, K_mu]|Psi>.
         In ADAPT-VQE, this is the 'residual gradient' used to determine
@@ -443,9 +444,12 @@ class UCCVQE(VQE, UCC):
                         grads[r, mu] += self._weights[r] * 2.0 * np.real(np.vdot(qc_sig.get_coeff_vec(), qc_psi.get_coeff_vec()))
                         qc_psi.set_coeff_vec(psi_i)
 
-                if return_individual == True:
-                    np.testing.assert_allclose(np.imag(grads), np.zeros_like(grads), atol=1e-7)
+                np.testing.assert_allclose(np.imag(grads), np.zeros_like(grads), atol=1e-7)
+                if return_individual == True:    
                     return grads
+                else:
+                    return np.einsum('ru->u', grads)
+
             elif coupling == True:
                 Kmus = []
                 for mu, (coeff, operator) in enumerate(self._pool_obj):
@@ -476,13 +480,11 @@ class UCCVQE(VQE, UCC):
                             grads[r2, r, mu] += np.real(np.vdot(qc_sig.get_coeff_vec(), qc_psi.get_coeff_vec()))
                             qc_psi.set_coeff_vec(psi_i)
 
-                if return_individual == True:
-                    np.testing.assert_allclose(np.imag(grads), np.zeros_like(grads), atol=1e-7)
-                return grads
+               
+                
                 
 
         np.testing.assert_allclose(np.imag(grads), np.zeros_like(grads), atol=1e-7)
-        
         return grads
 
     def gradient_ary_feval(self, params):
