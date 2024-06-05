@@ -53,24 +53,19 @@ class Gibbs_ADAPT(UCCVQE):
         q = np.exp(-self.beta * (E - np.ones(E.shape)*E[0]))
         
         Q = np.sum(q)
-        p = []
         p = q/Q
         
         U = E.T@p
         p = np.array([i for i in p if i > 0])
         S = -p.T@np.log(p)
-        ''' 
-        S = (1/self.beta)*(-np.sum(p)*np.log(Q))
-        for i in range(len(q)):
-            if abs(q[i]) > 0:
-                S += (1/self.beta*p[i]*np.log(q[i]))
-        '''
+        
         F = U - (1/self.beta)*S
         self.current_U = U
         self.current_S = S
+        self.current_F = F
         if return_all == True:
             return U, S, F
-        return U + S
+        return F
 
     def compute_free_energy_gradient(self, x):
         #Get energy expectation values.
@@ -104,8 +99,8 @@ class Gibbs_ADAPT(UCCVQE):
         print("Running Gibbs VQE...")
         self.vqe_iteration = 0
         print(f"Iteration   Energy")
-        self.current_energy = self.compute_free_energy(x0)
-        print(f"0 {self.current_energy}")
+        self.current_F = self.compute_free_energy(x0)
+        print(f"0 {self.current_F}")
         res = scipy.optimize.minimize(self.compute_free_energy,
                                       x0,
                                       method = "BFGS",
@@ -129,7 +124,7 @@ class Gibbs_ADAPT(UCCVQE):
             print(f"TOPS: {self._tops}") 
             F, self._tamps = self.free_energy_vqe(self._tamps)
             self.compute_free_energy(self._tamps) 
-            self.history.append((adapt_iteration, F, self.current_U, self.current_S, self._tamps))
+            self.history.append((adapt_iteration, self.current_U, self.current_S, self.current_F, self._tamps))
             print("Iter     U       S       F")
             for point in self.history:
                 print(f"{point[0]}  {point[1]}  {point[2]}  {point[3]}", flush = True) 
@@ -137,11 +132,11 @@ class Gibbs_ADAPT(UCCVQE):
             if len(self._tops) == max_depth:
                 Done = True
 
-        return F, self._tamps
+        return self.current_U, self.current_S, self.current_F, self._tamps
 
     def callback(self, x):
         self.vqe_iteration += 1
-        print(f"{self.vqe_iteration} {self.current_energy}", flush = True)
+        print(f"{self.vqe_iteration} {self.current_F}", flush = True)
         
 
     def get_num_commut_measurements(self):
