@@ -29,14 +29,14 @@ class Gibbs_ADAPT(UCCVQE):
         self._weights = [1]*len(references)
         self._is_multi_state = True
         self.T = T
-        try:
-            assert(self.T > 0)
-        except:
-            print("T must be positive.")
-            exit()
+        
+        if T > 0:
+            self.beta = 1/(kb*T)
+        else:
+            self.beta = None
 
         self.history = []
-        self.beta = 1/(kb*T)
+        
         
         
         self.verbose = verbose
@@ -49,7 +49,16 @@ class Gibbs_ADAPT(UCCVQE):
         #Get energy expectation values. 
         U = self.build_Uvqc(amplitudes = x)
         E, A, ops = qf.ritz_eigh(self._nqb, self._qb_ham, U, [], verbose = False)
-        
+
+        if self.beta is None:
+            self.current_U = E[0]
+            self.current_S = 0
+            self.current_F = E[0]
+            if return_all == True:
+                return E[0], 0, E[0]
+            else:
+                return E[0]
+             
         q = np.exp(-self.beta * (E - np.ones(E.shape)*E[0]))
         
         Q = np.sum(q)
@@ -72,9 +81,12 @@ class Gibbs_ADAPT(UCCVQE):
         U = self.build_Uvqc(amplitudes = x)
         E, A, ops = qf.ritz_eigh(self._nqb, self._qb_ham, U, [], verbose = False)
         E = np.array(E).real
+        
         A = A.real 
         dH = self.measure_gradient(params=x, coupling = True)
         dE = np.einsum('ij,jku,ki->iu', A.T, dH, A)
+        if self.beta is None:
+            return dE[0,:]
         q = np.exp(-self.beta * (E - np.ones(E.shape)*E[0]))
         Q = np.sum(q)
         p = q/Q 
@@ -88,6 +100,8 @@ class Gibbs_ADAPT(UCCVQE):
         A = A.real
         dH = self.measure_gradient3(coupling = True)
         dE = np.einsum('ij,jku,ki->iu', A.T, dH, A)
+        if self.beta is None:
+            return dE[0,:]
         q = np.exp(-self.beta * (E - np.ones(E.shape)*E[0]))
         Q = np.sum(q)
         p = q/Q 
@@ -110,7 +124,7 @@ class Gibbs_ADAPT(UCCVQE):
                                       )        
         return res.fun, list(res.x)
 
-    def gibbs_adapt_vqe(self, max_depth = 20):
+    def gibbs_adapt_vqe(self, max_depth = 20, gtol = 1e-8):
         adapt_iteration = 0
         Done = False
         while Done == False:
@@ -118,6 +132,9 @@ class Gibbs_ADAPT(UCCVQE):
             add_grad = self.compute_addition_gradient()
             idx = np.argsort(-abs(add_grad))
             add_grad = add_grad[idx]
+            if abs(add_grad[0]) < gtol:
+                print("Gradient Threshold Reached")
+                break
             print(f"Adding operator {idx[0]} with gradient {add_grad[0]}")
             self._tops.append(idx[0])
             self._tamps.append(0.0)
@@ -125,9 +142,9 @@ class Gibbs_ADAPT(UCCVQE):
             F, self._tamps = self.free_energy_vqe(self._tamps)
             self.compute_free_energy(self._tamps) 
             self.history.append((adapt_iteration, self.current_U, self.current_S, self.current_F, self._tamps))
-            print("Iter     U       S       F")
-            for point in self.history:
-                print(f"{point[0]}  {point[1]}  {point[2]}  {point[3]}", flush = True) 
+            
+            
+            print(f" T {self.T} ADAPT_ITER {adapt_iteration} REFS {len(self._references)} {self.current_U}  {self.current_S}  {self.current_F}", flush = True) 
             
             if len(self._tops) == max_depth:
                 Done = True
