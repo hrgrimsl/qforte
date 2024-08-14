@@ -1,11 +1,12 @@
 """
 Algorithms to do excited states based on expansions.  (E.g. q-sc-EOM)
 """
+
 import qforte
 import numpy as np
 
 
-def q_sc_eom(n_qubit, H, U_ref, U_manifold, ops_to_compute = []):
+def q_sc_eom(n_qubit, H, U_ref, U_manifold, ops_to_compute=[]):
     """
     Quantum, self-consistent equation-of-motion method from Asthana et. al.
     DOI: 10.1039/d2sc05371c
@@ -18,31 +19,36 @@ def q_sc_eom(n_qubit, H, U_ref, U_manifold, ops_to_compute = []):
 
     NEEDS TO BE REVISITED FOR INEXACT REFERENCES
     """
-    
+
     myQC = qforte.Computer(n_qubit)
     myQC.apply_circuit(U_ref)
     E0 = myQC.direct_op_exp_val(H).real
     print(f"Ground state energy: {E0}")
-    print(f"Doing Ritz diagonalization for excited states.")  
-    Ek, A, ops = ritz_eigh(n_qubit, H, U_manifold) 
-    del ops 
+    print(f"Doing Ritz diagonalization for excited states.")
+    Ek, A, ops = ritz_eigh(n_qubit, H, U_manifold)
+    del ops
     op_mats = []
     if len(ops_to_compute) > 0:
-        #Add the reference state with coefficient 1.
+        # Add the reference state with coefficient 1.
         n_states = len(Ek) + 1
-        A_plus_ref = np.zeros((n_states, n_states), dtype = "complex")
+        A_plus_ref = np.zeros((n_states, n_states), dtype="complex")
         A_plus_ref[0, 0] = 1.0
-        A_plus_ref[1:,1:] = A
+        A_plus_ref[1:, 1:] = A
         all_Us = [U_ref] + U_manifold
-        
-        for op in ops_to_compute:
-            op_vqe_basis = qforte.build_effective_symmetric_operator(n_qubit, op, all_Us)
-            op_q_sc_eom_basis = (A_plus_ref.T.conj()@op_vqe_basis@A_plus_ref).real        
-            op_mats.append(op_q_sc_eom_basis)
-    
-    return [E0]+list(Ek), A_plus_ref, op_mats
 
-def ritz_eigh(n_qubit, H, U, ops_to_compute = [], verbose = True):
+
+        for op in ops_to_compute:
+            op_vqe_basis = qforte.build_effective_symmetric_operator(
+                n_qubit, op, all_Us
+            )
+            op_q_sc_eom_basis = (A_plus_ref.T.conj() @ op_vqe_basis @ A_plus_ref).real
+            op_mats.append(op_q_sc_eom_basis)
+
+    return [E0] + list(Ek), A_plus_ref, op_mats
+
+
+def ritz_eigh(n_qubit, H, U, ops_to_compute=[]):
+
     """
     Obtains the ritz eigenvalues of H in the space of {U|i>}
 
@@ -52,7 +58,7 @@ def ritz_eigh(n_qubit, H, U, ops_to_compute = [], verbose = True):
     We will convert all of them into numpy arrays in the basis of {U_i|0>}.
     """
     M = qforte.build_effective_symmetric_operator(n_qubit, H, U)
-    
+
     Ek, A = np.linalg.eigh(M)
     if verbose == True:
         print("Ritz Diagonalization:")
@@ -61,11 +67,10 @@ def ritz_eigh(n_qubit, H, U, ops_to_compute = [], verbose = True):
             print(f"{(i+1):5}{E:35.16f}")
 
     op_mats = []
-    
+
     for op in ops_to_compute:
         op_vqe_basis = qforte.build_effective_symmetric_operator(n_qubit, op, U)
-        op_ritz_basis = A.T.conj()@op_vqe_basis@A
+        op_ritz_basis = A.T.conj() @ op_vqe_basis @ A
         op_mats.append(op_ritz_basis)
-    
+
     return Ek, A, op_mats
-    

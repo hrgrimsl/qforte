@@ -18,9 +18,8 @@ class Gibbs_ADAPT(UCCVQE):
             references = None,
             pool_type = "GSD",
             verbose = False,
-            T = 273):
-        
-        
+            T = 0):
+                
         self._pool_type = pool_type
         self._compact_excitations = True
         self.fill_pool() 
@@ -37,124 +36,22 @@ class Gibbs_ADAPT(UCCVQE):
 
         self.history = []
         
-        
-        
         self.verbose = verbose
         self._Uprep = references
         #self._Upreps = [qf.build_Uprep(ref, 'occupation_list') for ref in references]
+        self.update_C()
+        print(self.subspace_C)
+
+    def update_C(self):
+        U = self.build_Uvqc()
+        if self._state_prep_type == "computer":
+            print(U)
+            exit()
+
         
-
-
-    def compute_free_energy(self, x, return_all = False):
-        #Get energy expectation values. 
-        U = self.build_Uvqc(amplitudes = x)
-        E, A, ops = qf.ritz_eigh(self._nqb, self._qb_ham, U, [], verbose = False)
-
-        if self.beta is None:
-            self.current_U = E[0]
-            self.current_S = 0
-            self.current_F = E[0]
-            if return_all == True:
-                return E[0], 0, E[0]
-            else:
-                return E[0]
-             
-        q = np.exp(-self.beta * (E - np.ones(E.shape)*E[0]))
         
-        Q = np.sum(q)
-        p = q/Q
-        
-        U = E.T@p
-        p = np.array([i for i in p if i > 0])
-        S = -p.T@np.log(p)
-        
-        F = U - (1/self.beta)*S
-        self.current_U = U
-        self.current_S = S
-        self.current_F = F
-        if return_all == True:
-            return U, S, F
-        return F
-
-    def compute_free_energy_gradient(self, x):
-        #Get energy expectation values.
-        U = self.build_Uvqc(amplitudes = x)
-        E, A, ops = qf.ritz_eigh(self._nqb, self._qb_ham, U, [], verbose = False)
-        E = np.array(E).real
-        
-        A = A.real 
-        dH = self.measure_gradient(params=x, coupling = True)
-        dE = np.einsum('ij,jku,ki->iu', A.T, dH, A)
-        if self.beta is None:
-            return dE[0,:]
-        q = np.exp(-self.beta * (E - np.ones(E.shape)*E[0]))
-        Q = np.sum(q)
-        p = q/Q 
-        dF = np.einsum('i,iu->u', p, dE)        
-        return dF
-
-    def compute_addition_gradient(self):
-        #Get energy expectation values.        
-        U = self.build_Uvqc(amplitudes = self._tamps)
-        E, A, ops = qf.ritz_eigh(self._nqb, self._qb_ham, U, [], verbose = False)
-        A = A.real
-        dH = self.measure_gradient3(coupling = True)
-        dE = np.einsum('ij,jku,ki->iu', A.T, dH, A)
-        if self.beta is None:
-            return dE[0,:]
-        q = np.exp(-self.beta * (E - np.ones(E.shape)*E[0]))
-        Q = np.sum(q)
-        p = q/Q 
-        dF = np.einsum('i,iu->u', p, dE)                
-        return dF
-
-    def free_energy_vqe(self, x0):
-        #Run a VQE to optimize x.
-        print("Running Gibbs VQE...")
-        self.vqe_iteration = 0
-        print(f"Iteration   Energy")
-        self.current_F = self.compute_free_energy(x0)
-        print(f"0 {self.current_F}")
-        res = scipy.optimize.minimize(self.compute_free_energy,
-                                      x0,
-                                      method = "BFGS",
-                                      jac = self.compute_free_energy_gradient,
-                                      options = {'gtol': 1e-6, 'disp': True},
-                                      callback = self.callback
-                                      )        
-        return res.fun, list(res.x)
-
-    def gibbs_adapt_vqe(self, max_depth = 20, gtol = 1e-8):
-        adapt_iteration = 0
-        Done = False
-        while Done == False:
-            adapt_iteration += 1 
-            add_grad = self.compute_addition_gradient()
-            idx = np.argsort(-abs(add_grad))
-            add_grad = add_grad[idx]
-            if abs(add_grad[0]) < gtol:
-                print("Gradient Threshold Reached")
-                break
-            print(f"Adding operator {idx[0]} with gradient {add_grad[0]}")
-            self._tops.append(idx[0])
-            self._tamps.append(0.0)
-            print(f"TOPS: {self._tops}") 
-            F, self._tamps = self.free_energy_vqe(self._tamps)
-            self.compute_free_energy(self._tamps) 
-            self.history.append((adapt_iteration, self.current_U, self.current_S, self.current_F, self._tamps))
-            
-            
-            print(f" T {self.T} ADAPT_ITER {adapt_iteration} REFS {len(self._references)} {self.current_U}  {self.current_S}  {self.current_F}", flush = True) 
-            
-            if len(self._tops) == max_depth:
-                Done = True
-
-        return self.current_U, self.current_S, self.current_F, self._tamps
-
-    def callback(self, x):
-        self.vqe_iteration += 1
-        print(f"{self.vqe_iteration} {self.current_F}", flush = True)
-        
+    def update_p(self):
+        pass
 
     def get_num_commut_measurements(self):
         pass
