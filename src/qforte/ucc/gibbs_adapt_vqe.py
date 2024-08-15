@@ -1,0 +1,274 @@
+"""
+Classes for Gibbs State ADAPT-VQE
+====================================
+"""
+
+import qforte as qf
+
+from qforte.abc.uccvqeabc import UCCVQE
+
+import numpy as np
+import scipy
+import copy
+
+kb = 3.166811563455546e-06
+
+class Gibbs_ADAPT(UCCVQE):
+    def run(self,
+            ref = None,
+            pool_type = "GSD",
+            verbose = False,
+            T = None,
+            max_depth = 10):
+
+        self._pool_type = pool_type
+        self._compact_excitations = True
+        self.fill_pool() 
+        self._ref = ref
+        self.T = T
+        self.C = None
+        self.p = None 
+        try:
+            self.beta = 1/(kb*T)
+        except:
+            print(f"""{T} should be a positive float. 
+                  (You can obtain T = 0 results through normal ADAPT-VQE,
+                  or by using a single reference with any temperature.)""")
+        self.history = []
+        
+        print("*"*30)
+        print("Gibbs ADAPT-VQE\n")
+        
+        print(f"T = {T} K")
+        print(f"Dimension of ρ = {len(self._ref)}")
+        print(f"Dimension of Fock Space = {pow(2,self._nqb)}")
+        print(f"({100*len(self._ref)/pow(2, self._nqb):1.4f}% Saturation)")
+        self._adapt_iter = 0 
+        self._tops = []
+        self._tamps = []
+
+        
+        while self._adapt_iter < max_depth:
+            print("\n")
+            print("*"*32)
+            print("\n") 
+            print(f"ADAPT Iteration {self._adapt_iter}")
+            print("\n")
+            self.dm_update()
+            print(self.C)
+            self.report_dm()
+            self._adapt_iter += 1
+            
+            op_grads = self.compute_dF3() 
+            idx = np.argsort(abs(op_grads))
+            print('\n') 
+            print(f"Operator Addition Gradients:")
+            print(f"Norm of Gradients: {np.linalg.norm(op_grads)}")
+            print(f"Adding operator {idx[-1]} with gradient {op_grads[idx[-1]]}")
+            print(self._pool_obj[idx[-1]][1])
+            self._tops.append(idx[-1])
+            self._tamps.append(0.0)
+            self._tamps = list(self.Gibbs_VQE(self._tamps))
+    
+        print(f"\nADAPT-VQE Completed After {self._adapt_iter} Iterations.\n")
+
+        print(f"Ansatz (First Operator Applied First to Reference)\n")
+        for i in range(len(self._tops)):
+            print(f"{self._tops[i]:<4}  {self._tamps[i]:+8.12f}  {self._pool_obj[self._tops[i]][1].terms()[1][2]} <--> {self._pool_obj[self._tops[i]][1].terms()[1][1]}")
+        print("\n")
+        self.dm_update()
+        self.report_dm()
+        print("\n")
+        return self.U, self.S, self.F 
+
+
+    def Gibbs_VQE(self, x):
+        self.vqe_iter = 0
+        print(f"VQE Iter.      Free Energy (Eh)")
+        print(f"{self.vqe_iter:>5}          {self.compute_F(x):16.12f}")
+        res = scipy.optimize.minimize(self.compute_F, self._tamps, callback = self.F_callback, method = 'bfgs', options = {'gtol': 1e-7, 'disp': True}, jac = self.compute_dF) 
+        return res.x
+
+    def F_callback(self, x):
+        self.vqe_iter += 1
+        print(f"{self.vqe_iter:>5}          {self.compute_F(x):16.12f}")
+
+
+    def report_dm(self):
+        print("ρ = ")
+        for i in range(len(self._ref)):
+            print(f"{self.p[i]:+12.8f} |{i}><{i}|")
+        print("\n")
+        print(f"Internal Energy         U = {self.U:+12.8f} Eh")
+        print(f"Entropy                 S = {self.S:+12.8f} Eh^2/K")
+        print(f"Helmholtz Free Energy   F = {self.F:+12.8f} Eh")
+    
+    def dm_update(self): 
+        if self._state_prep_type == "computer":
+            sigmas = []
+            kets = []
+            #Diagonalize effective H in subspace
+            U = self.build_Uvqc() 
+            for i, det in enumerate(self._ref):
+                sigma = qf.Computer(self._nqb)
+                sigma.set_coeff_vec(det.get_coeff_vec())
+                sigma.apply_circuit(U[i])
+                kets.append(sigma.get_coeff_vec())
+                sigma.apply_operator(self._qb_ham)
+                sigmas.append(sigma.get_coeff_vec()) 
+            sigma = np.array(sigmas).real 
+            kets = np.array(kets).real
+            H_eff = sigma@kets.T
+            w, self.C = np.linalg.eigh(H_eff)
+            
+            #Compute Boltzmann probabilities
+            q = np.exp(-self.beta * (w - w[0]))
+            Z = np.sum(q)
+            self.p = q/Z
+            self.U = w.T@self.p
+            plogp = [p*np.log(p) if p > 1e-12 else 0 for p in self.p]
+            self.S = -sum(plogp)
+            self.F = self.U - (1/self.beta)*self.S
+
+    def compute_F(self, x):
+        #Compute F without any relaxation of p and C.
+        if self._state_prep_type == "computer":
+            sigmas = []
+            kets = []
+            #Diagonalize effective H in subspace
+            U = self.build_Uvqc(x)
+            
+            for i, det in enumerate(self._ref):
+                sigma = qf.Computer(self._nqb)
+                sigma.set_coeff_vec(det.get_coeff_vec())
+                sigma.apply_circuit(U[i])
+                kets.append(sigma.get_coeff_vec())
+                sigma.apply_operator(self._qb_ham)
+                sigmas.append(sigma.get_coeff_vec()) 
+            sigma = np.array(sigmas).real 
+            kets = np.array(kets).real
+            H_eff = sigma@kets.T
+            H_eff = self.C.T@H_eff@self.C        
+            
+            #Compute Boltzmann probabilities 
+            U = np.diag(H_eff)@self.p
+            plogp = [p*np.log(p) if p > 1e-12 else 0 for p in self.p]
+            S = -sum(plogp)
+            F = U - (1/self.beta)*S
+            return F
+
+    def compute_dF3(self):
+            #We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
+        
+        alphas = np.zeros((len(self._ref), len(self._pool_obj), pow(2, self._nqb)))
+        sigmas = np.zeros((len(self._ref), pow(2, self._nqb)))
+        U = self.build_Uvqc(self._tamps)
+        #A - A'
+        Kmus = []
+        for mu in range(len(self._pool_obj)):
+            Kmu = self._pool_obj[mu][1].jw_transform(self._qubit_excitations)
+            Kmu.mult_coeffs(self._pool_obj[mu][0])
+            Kmus.append(Kmu)
+            
+        if self._state_prep_type == "computer":    
+            for i, ref in enumerate(self._ref):
+                sigma = qf.Computer(ref)
+                sigma.apply_circuit(U[i])
+                sigma.apply_operator(self._qb_ham)
+                
+                sigmas[i,:] = np.array(sigma.get_coeff_vec()).real
+        
+            for i, ref in enumerate(self._ref):
+                alpha = qf.Computer(ref)
+                alpha.apply_circuit(U[i])
+                for j in range(len(Kmus)):
+                    atemp = qf.Computer(alpha)
+                    atemp.apply_operator(Kmus[j])
+                    
+                    alphas[i,j,:] = np.array(atemp.get_coeff_vec()).real
+                    
+        
+        dH = np.einsum('iv,juv->iju', sigmas, alphas)
+        dH += np.einsum('jv,iuv->iju', sigmas, alphas)
+         
+        dF = np.einsum('ji,jku,ki->iu', self.C, dH, self.C)        
+        dF = np.einsum('i,iu->u', self.p, dF)
+        return dF
+
+    def numerical_dF(self, x):
+        h = 1e-5
+        dF = []
+        for i in range(0, len(x)):
+            forw = copy.deepcopy(x)
+            rev = copy.deepcopy(x)
+            forw[i] += h
+            rev[i] -= h
+            dF.append((1/(2*h))*(self.compute_F(forw) - self.compute_F(rev)))
+        return np.array(dF)
+    
+    def compute_dF(self, x):
+        #We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
+        
+        alphas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
+        sigmas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
+        U = self.build_Uvqc(x)
+        #A - A'
+        Kmus = []
+        #Exp(-t_mu(A - A'))
+        Umus = []
+        for mu, t in enumerate(x):
+            Kmu = self._pool_obj[self._tops[mu]][1].jw_transform(self._qubit_excitations)
+            Kmu.mult_coeffs(self._pool_obj[self._tops[mu]][0])
+            Kmus.append(Kmu)
+            Umu = qf.Circuit()
+            try:
+                assert len(self._pool_obj[self._tops[mu]][1].terms()[1]) == 3
+            except:
+                print("Gibbs ADAPT-VQE does not currently support ")
+            Umu.add(qf.compact_excitation_circuit(-t * self._pool_obj[self._tops[mu]][1].terms()[1][0],
+                                self._pool_obj[self._tops[mu]][1].terms()[1][1],
+                                self._pool_obj[self._tops[mu]][1].terms()[1][2],
+                                self._qubit_excitations,
+                            )
+            )
+            Umus.append(Umu) 
+        if self._state_prep_type == "computer":    
+            for i, ref in enumerate(self._ref):
+                sigma = qf.Computer(ref)
+                sigma.apply_circuit(U[i])
+                sigma.apply_operator(self._qb_ham)
+                for j in range(len(self._tamps)):  
+                    sigmas[i,-j-1,:] = np.array(sigma.get_coeff_vec()).real
+                    sigma.apply_circuit(Umus[-j-1])
+        
+            for i, ref in enumerate(self._ref):
+                alpha = qf.Computer(ref)
+                alpha.apply_circuit(U[i])
+                for j in range(len(self._tamps)):
+                    atemp = qf.Computer(alpha)
+                    atemp.apply_operator(Kmus[-j-1])
+                    alphas[i,-j-1,:] = np.array(atemp.get_coeff_vec()).real
+                    alpha.apply_circuit(Umus[-j-1])
+         
+        dH = np.einsum('iuv,juv->iju', sigmas, alphas)
+        dH += np.einsum('juv,iuv->iju', sigmas, alphas)
+        dF = np.einsum('ji,jku,ki->iu', self.C, dH, self.C)        
+        dF = np.einsum('i,iu->u', self.p, dF)
+        return dF 
+
+        
+
+    def get_num_commut_measurements(self):
+        pass
+    def get_num_ham_measurements(self):
+        pass
+    def print_options_banner(self):
+        pass
+    def print_summary_banner(self):
+        pass
+    def run_realistic(self):
+        pass
+    def solve(self):
+        pass
+    def verify_run(self):
+        pass    

@@ -138,11 +138,11 @@ class Algorithm(ABC):
             self._nqb = len(self._ref)
 
         else:
-            if weights == None:
-                print("State-averaging weights not specified.  Assuming equal weights.")
-                self._weights = [1 / len(self._ref)] * len(self._ref)
-            else:
-                self._weights = weights
+            try:
+                assert weights != None
+            except:
+                print("Weights need to be specified for a multi-state calculation.")
+            self._weights = weights
 
             if self._state_prep_type == "occupation_list":
                 if reference == None:
