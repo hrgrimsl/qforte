@@ -185,8 +185,8 @@ class ADAPTVQE(UCCVQE):
                 E, A = np.linalg.eigh(H_eff)
             self._diag_energies.append(E)
             self._diag_As.append(A)
-            cur_string = f"Current Energies {avqe_iter}"
-            diag_string = f"Best Energies {avqe_iter}"
+            cur_string = f"Current Energies {avqe_iter}:"
+            diag_string = f"Best Energies {avqe_iter}:"
             for e in E:
                 diag_string += f" {e}"
                 cur_string += f" {e}"

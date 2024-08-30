@@ -11,7 +11,7 @@ import numpy as np
 import scipy
 import copy
 
-kb = 3.166811563455546e-06
+kb = 3.1668115634564068e-06
 
 class Gibbs_ADAPT(UCCVQE):
     def run(self,
@@ -20,7 +20,9 @@ class Gibbs_ADAPT(UCCVQE):
             verbose = False,
             T = None,
             max_depth = 10):
-
+        
+        self.Sz = qf.total_spin_z(self._nqb)
+        self.S2 = qf.total_spin_squared(self._nqb)
         self._pool_type = pool_type
         self._compact_excitations = True
         self.fill_pool() 
@@ -48,29 +50,38 @@ class Gibbs_ADAPT(UCCVQE):
         self._tamps = []
 
         
-        while self._adapt_iter < max_depth:
+        while len(self._tops) < max_depth:
             print("\n")
             print("*"*32)
-            print("\n") 
-            print(f"ADAPT Iteration {self._adapt_iter}")
+            print("\n", flush = True) 
+            print(f"ADAPT Iteration {self._adapt_iter} ({len(self._tops)} Operators)")
             print("\n")
             self.dm_update()
-            print(self.C)
             self.report_dm()
             self._adapt_iter += 1
-            
             op_grads = self.compute_dF3() 
             idx = np.argsort(abs(op_grads))
             print('\n') 
-            print(f"Operator Addition Gradients:")
-            print(f"Norm of Gradients: {np.linalg.norm(op_grads)}")
-            print(f"Adding operator {idx[-1]} with gradient {op_grads[idx[-1]]}")
-            print(self._pool_obj[idx[-1]][1])
-            self._tops.append(idx[-1])
-            self._tamps.append(0.0)
+            
+            if len(self._tamps) != 0 and self._tamps[-1] == 0:
+                self._tamps = list(np.array(self._tamps[:-1]))
+                self._tops = list(np.array(self._tops[:-1]))
+                print("ADAPT-VQE cannot optimize further.")
+                break
+
+            elif len(self._tops) == 0 or self._tops[-1] != idx[-1]:
+                print(f"Operator Addition Gradients:")
+                print(f"Norm of Gradients: {np.linalg.norm(op_grads)}")
+                print(f"Adding operator {idx[-1]} with gradient {op_grads[idx[-1]]}")
+                print(self._pool_obj[idx[-1]][1])
+                self._tops.append(idx[-1])
+                self._tamps.append(0.0)
+
+            else:
+                print("Reoptimizing parameters after updating distribution.")            
             self._tamps = list(self.Gibbs_VQE(self._tamps))
     
-        print(f"\nADAPT-VQE Completed After {self._adapt_iter} Iterations.\n")
+        print(f"\nADAPT-VQE Ended With {len(self._tamps)} Operators.\n")
 
         print(f"Ansatz (First Operator Applied First to Reference)\n")
         for i in range(len(self._tops)):
@@ -84,25 +95,32 @@ class Gibbs_ADAPT(UCCVQE):
 
     def Gibbs_VQE(self, x):
         self.vqe_iter = 0
-        print(f"VQE Iter.      Free Energy (Eh)")
-        print(f"{self.vqe_iter:>5}          {self.compute_F(x):16.12f}")
-        res = scipy.optimize.minimize(self.compute_F, self._tamps, callback = self.F_callback, method = 'bfgs', options = {'gtol': 1e-7, 'disp': True}, jac = self.compute_dF) 
+        print(f"VQE Iter.      Free Energy (Eh)     gnorm")
+        print(f"{self.vqe_iter:>5}          {self.compute_F(x):16.12f}      {np.linalg.norm(self.compute_dF(x)):16.12f}")
+        res = scipy.optimize.minimize(self.compute_F, self._tamps, 
+                                      callback = self.F_callback,
+                                      method = 'bfgs',
+                                      options = {'gtol': 1e-16, 'disp': True},
+                                      jac = self.compute_dF)
         return res.x
 
     def F_callback(self, x):
         self.vqe_iter += 1
-        print(f"{self.vqe_iter:>5}          {self.compute_F(x):16.12f}")
+        print(f"{self.vqe_iter:>5}          {self.compute_F(x):16.12f}      {np.linalg.norm(self.compute_dF(x)):16.12f}")
 
 
     def report_dm(self):
         print("ρ = ")
+        Sz, S2 = self.compute_spins(self._tamps)
         for i in range(len(self._ref)):
-            print(f"{self.p[i]:+12.8f} |{i}><{i}|")
+            print(f"{self.p[i]:+20.16f} |{i}><{i}| (Sz = {Sz[i]:+20.16f}, S^2 = {S2[i]:20.16f})")
         print("\n")
-        print(f"Internal Energy         U = {self.U:+12.8f} Eh")
-        print(f"Entropy                 S = {self.S:+12.8f} Eh^2/K")
-        print(f"Helmholtz Free Energy   F = {self.F:+12.8f} Eh")
-    
+        print(f"Internal Energy         U  = {self.U:+20.16f} Eh")
+        print(f"Entropy                 S  = {self.S:+20.16f} Eh^2/K")
+        print(f"Helmholtz Free Energy   F  = {self.F:+20.16f} Eh")
+        print(f"Thermal Averaged Sz     Sz = {self.p.T@Sz:+20.16f}")
+        print(f"Thermal Averaged S2     S2 = {self.p.T@S2:+20.16f}")
+
     def dm_update(self): 
         if self._state_prep_type == "computer":
             sigmas = []
@@ -126,7 +144,7 @@ class Gibbs_ADAPT(UCCVQE):
             Z = np.sum(q)
             self.p = q/Z
             self.U = w.T@self.p
-            plogp = [p*np.log(p) if p > 1e-12 else 0 for p in self.p]
+            plogp = [p*np.log(p) if p > 0 else 0 for p in self.p]
             self.S = -sum(plogp)
             self.F = self.U - (1/self.beta)*self.S
 
@@ -135,7 +153,6 @@ class Gibbs_ADAPT(UCCVQE):
         if self._state_prep_type == "computer":
             sigmas = []
             kets = []
-            #Diagonalize effective H in subspace
             U = self.build_Uvqc(x)
             
             for i, det in enumerate(self._ref):
@@ -152,10 +169,34 @@ class Gibbs_ADAPT(UCCVQE):
             
             #Compute Boltzmann probabilities 
             U = np.diag(H_eff)@self.p
-            plogp = [p*np.log(p) if p > 1e-12 else 0 for p in self.p]
+            plogp = [p*np.log(p) if p > 0 else 0 for p in self.p]
             S = -sum(plogp)
             F = U - (1/self.beta)*S
             return F
+
+    def compute_spins(self, x):
+            Sz_sigmas = []
+            S2_sigmas = []
+            kets = []
+            U = self.build_Uvqc(x)
+            for i, det in enumerate(self._ref):
+                Sz_sigma = qf.Computer(self._nqb)
+                Sz_sigma.set_coeff_vec(det.get_coeff_vec())
+                Sz_sigma.apply_circuit(U[i])
+                S2_sigma = qf.Computer(Sz_sigma)
+                kets.append(Sz_sigma.get_coeff_vec())
+                Sz_sigma.apply_operator(self.Sz)
+                Sz_sigmas.append(Sz_sigma.get_coeff_vec())
+                S2_sigma.apply_operator(self.S2) 
+                S2_sigmas.append(S2_sigma.get_coeff_vec())
+            Sz_sigma = np.array(Sz_sigmas).real 
+            S2_sigma = np.array(S2_sigmas).real 
+            kets = np.array(kets).real
+            Sz_eff = Sz_sigma@kets.T
+            S2_eff = S2_sigma@kets.T
+            Sz_eff = self.C.T@Sz_eff@self.C        
+            S2_eff = self.C.T@S2_eff@self.C                    
+            return np.diag(Sz_eff), np.diag(S2_eff)
 
     def compute_dF3(self):
             #We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
@@ -195,17 +236,6 @@ class Gibbs_ADAPT(UCCVQE):
         dF = np.einsum('i,iu->u', self.p, dF)
         return dF
 
-    def numerical_dF(self, x):
-        h = 1e-5
-        dF = []
-        for i in range(0, len(x)):
-            forw = copy.deepcopy(x)
-            rev = copy.deepcopy(x)
-            forw[i] += h
-            rev[i] -= h
-            dF.append((1/(2*h))*(self.compute_F(forw) - self.compute_F(rev)))
-        return np.array(dF)
-    
     def compute_dF(self, x):
         #We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
         
