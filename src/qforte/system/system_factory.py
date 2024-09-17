@@ -24,7 +24,7 @@ def system_factory(system_type="molecule", build_type="psi4", **kwargs):
 
     molecule_adapters = {"external": MA.create_external_mol, "psi4": MA.create_psi_mol}
 
-    model_adapters = {"TFIM": mod.create_TFIM}
+    model_adapters = {"TFIM": mod.create_TFIM, "XY_Chain": mod.create_XY_chain}
 
     if system_type == "molecule":
         kwargs.setdefault("basis", "sto-3g")
