@@ -169,6 +169,36 @@ void QubitOpPool::fill_pool(std::string pool_type, const size_t nqb) {
                 add_term(1.0, AI);
             }
         }
+    } else if (pool_type == "qb12") {
+        std::map<std::string, std::string> paulis = {
+            {"0", "I"}, {"1", "X"}, {"2", "Y"}, {"3", "Z"}};
+        int nterms = static_cast<int>(std::pow(4, nqb));
+
+        for (int I = 0; I < nterms; I++) {
+            QubitOperator AI;
+            Circuit aI;
+            auto paulistr = pauli_idx_str(to_base4(I), nqb);
+            if (paulistr.length() != nqb) {
+                throw std::invalid_argument("paulistr.length() != nqb");
+            }
+            int non_identity_count = 0;
+            int nygates = 0;
+            for (size_t k = 0; k < nqb; k++) {
+                if (paulistr.substr(k, 1) != "0") {
+                    non_identity_count++;
+                }
+                if (paulistr.substr(k, 1) == "2") {
+                    nygates++;
+                }
+                if (paulistr.substr(k, 1) != "0") {
+                    aI.add_gate(make_gate(paulis[paulistr.substr(k, 1)], k, k));
+                }
+            }
+            if ((non_identity_count == 1 || non_identity_count == 2) && (nygates % 2 != 0)) {                
+                AI.add_term(std::complex<double>(0.0, -1.0), aI);
+                add_term(1.0, AI);
+            }
+        }
     } else {
         throw std::invalid_argument("Invalid pool_type specified.");
     }
