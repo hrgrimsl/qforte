@@ -130,11 +130,9 @@ PYBIND11_MODULE(qforte, m) {
         .def("square", &QubitOpPool::square)
         .def("fill_pool", &QubitOpPool::fill_pool)
         .def("str", &QubitOpPool::str)
-        .def("__getitem__", [](const QubitOpPool& pool, size_t i) { return pool.terms()[i]; })
         .def(
             "__iter__", [](const QubitOpPool& pool) { return py::make_iterator(pool.terms()); },
             py::keep_alive<0, 1>())
-        .def("__len__", [](const QubitOpPool& pool) { return pool.terms().size(); })
         .def("__str__", &QubitOpPool::str)
         .def("__repr__", &QubitOpPool::str);
 

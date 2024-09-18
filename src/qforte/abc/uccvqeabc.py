@@ -151,12 +151,9 @@ class UCCVQE(UCC, VQE):
 
             mu = M - 1
             # find <sig_N | K_N | psi_N>
-            if isinstance(self._pool_type, qf.SQOpPool):
-                Kmu_prev = self._pool_obj[self._tops[mu]][1].jw_transform(
-                    self._qubit_excitations
-                )
-            else:
-                Kmu_prev = self._pool_obj[self._tops[mu]][1]
+            Kmu_prev = self._pool_obj[self._tops[mu]][1].jw_transform(
+                self._qubit_excitations
+            )
 
             Kmu_prev.mult_coeffs(self._pool_obj[self._tops[mu]][0])
 
@@ -177,14 +174,9 @@ class UCCVQE(UCC, VQE):
                 else:
                     tamp = params[mu + 1]
 
-            
-                
-                if isinstance(self._pool_type, qf.SQOpPool):
-                    Kmu_prev = self._pool_obj[self._tops[mu]][1].jw_transform(
-                        self._qubit_excitations
-                    )
-                else:
-                    Kmu_prev = self._pool_obj[self._tops[mu]][1]
+                Kmu = self._pool_obj[self._tops[mu]][1].jw_transform(
+                    self._qubit_excitations
+                )
                 Kmu.mult_coeffs(self._pool_obj[self._tops[mu]][0])
 
                 if self._compact_excitations:
@@ -351,12 +343,8 @@ class UCCVQE(UCC, VQE):
             grads = np.zeros(len(self._pool_obj))
 
             for mu, (coeff, operator) in enumerate(self._pool_obj):
-                
                 qc_temp = qf.Computer(qc_psi)
-                if isinstance(self._pool_type, qf.SQOpPool):
-                    Kmu = operator.jw_transform(self._qubit_excitations)
-                else:
-                    Kmu = operator
+                Kmu = operator.jw_transform(self._qubit_excitations)
                 Kmu.mult_coeffs(coeff)
                 qc_temp.apply_operator(Kmu)
                 grads[mu] = 2.0 * np.real(
@@ -365,16 +353,13 @@ class UCCVQE(UCC, VQE):
         else:
             Kmus = []
             for mu, (coeff, operator) in enumerate(self._pool_obj):
-                if isinstance(self._pool_type, qf.SQOpPool):
-                    Kmu = operator.jw_transform(self._qubit_excitations)
-                else:
-                    Kmu = operator
+                Kmu = operator.jw_transform(self._qubit_excitations)
                 Kmu.mult_coeffs(coeff)
                 Kmus.append(Kmu)
 
             U_ansatz = self.ansatz_circuit()
             grads = np.zeros(len(self._pool_obj))
-            
+
             for r in range(len(self._ref)):
                 qc_psi = self.get_initial_computer()[r]
                 qc_psi.apply_circuit(self._Uprep[r])
@@ -382,12 +367,11 @@ class UCCVQE(UCC, VQE):
                 psi_i = qc_psi.get_coeff_vec()
 
                 qc_sig = qforte.Computer(self._nqb)
-                qc_sig.set_coeff_vec(psi_i) 
+                qc_sig.set_coeff_vec(psi_i)
                 qc_sig.apply_operator(self._qb_ham)
-                
-                
+
                 for mu, (coeff, operator) in enumerate(self._pool_obj):
-                    Kmu = Kmus[mu]  
+                    Kmu = Kmus[mu]
                     qc_psi.apply_operator(Kmu)
                     grads[mu] += (
                         self._weights[r]
@@ -396,10 +380,10 @@ class UCCVQE(UCC, VQE):
                             np.vdot(qc_sig.get_coeff_vec(), qc_psi.get_coeff_vec())
                         )
                     )
-                    
                     qc_psi.set_coeff_vec(psi_i)
-                
+
         np.testing.assert_allclose(np.imag(grads), np.zeros_like(grads), atol=1e-7)
+
         return grads
 
     def gradient_ary_feval(self, params):

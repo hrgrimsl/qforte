@@ -406,46 +406,45 @@ class AnsatzAlgorithm(Algorithm):
 
     def fill_pool(self):
         """This function populates an operator pool with SQOperator objects."""
-        
-        if self._pool_type in {
-            "sa_SD",
-            "GSD",
-            "SD",
-            "SDT",
-            "SDTQ",
-            "SDTQP",
-            "SDTQPH",
-        }:
-            self._pool_obj = qf.SQOpPool()
-            if hasattr(self._sys, "orb_irreps_to_int"):
-                self._pool_obj.set_orb_spaces(
-                    self._ref, self._sys.orb_irreps_to_int
-                )
+        if not self._is_multi_state:
+            if self._pool_type in {
+                "sa_SD",
+                "GSD",
+                "SD",
+                "SDT",
+                "SDTQ",
+                "SDTQP",
+                "SDTQPH",
+            }:
+                self._pool_obj = qf.SQOpPool()
+                if hasattr(self._sys, "orb_irreps_to_int"):
+                    self._pool_obj.set_orb_spaces(
+                        self._ref, self._sys.orb_irreps_to_int
+                    )
+                else:
+                    self._pool_obj.set_orb_spaces(self._ref)
+                self._pool_obj.fill_pool(self._pool_type)
+            elif isinstance(self._pool_type, qf.SQOpPool):
+                self._pool_obj = self._pool_type
+        else:
+            # Only GSD is well-defined for multiple references.
+            if self._pool_type in {"GSD"}:
+                self._pool_obj = qf.SQOpPool()
+                # o/v spaces are not well-defined: passing the dummy state self._ref[0]
+                if hasattr(self._sys, "orb_irreps_to_int"):
+                    self._pool_obj.set_orb_spaces(
+                        self._ref[0], self._sys.orb_irreps_to_int
+                    )
+                else:
+                    self._pool_obj.set_orb_spaces(self._ref[0])
+                self._pool_obj.fill_pool(self._pool_type)
+
             else:
-                self._pool_obj.set_orb_spaces(self._ref)
-            self._pool_obj.fill_pool(self._pool_type)
-        
-            self._Nm = [
-                len(operator.jw_transform().terms()) for _, operator in self._pool_obj
-            ]
-        
-        elif isinstance(self._pool_type, qf.SQOpPool):
-            self._pool_obj = self._pool_type
+                raise ValueError("Only GSD is well-defined for multiple references.")
 
-            self._Nm = [
-                len(operator.jw_transform().terms()) for _, operator in self._pool_obj
-            ]
-
-        elif self._pool_type in {
-            "qb12"
-        }:
-            self._pool_obj = qf.QubitOpPool()
-            self._pool_obj.fill_pool(self._pool_type, self._nqb)
-            self._Nm = [
-                len(operator.terms()) for _, operator in self._pool_obj
-            ]
-            
-        
+        self._Nm = [
+            len(operator.jw_transform().terms()) for _, operator in self._pool_obj
+        ]
 
     def measure_energy(self, Ucirc, computer=None):
         """
