@@ -252,7 +252,7 @@ class Gibbs_ADAPT(UCCVQE):
     def compute_relaxed_dF(self, x):
         self._tamps = list(x)
         self.dm_update()
-        return self.compute_dF(self, x)
+        return self.compute_dF(x)
 
     def compute_dF(self, x):
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
