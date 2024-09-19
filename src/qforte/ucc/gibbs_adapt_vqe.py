@@ -97,7 +97,7 @@ class Gibbs_ADAPT(UCCVQE):
             f"{self.vqe_iter:>5}          {self.compute_F(x):16.12f}      {np.linalg.norm(self.compute_dF(x)):16.12f}"
         )
         res = scipy.optimize.minimize(
-            self.compute_F,
+            self.compute_relaxed_F,
             self._tamps,
             callback=self.F_callback,
             method="bfgs",
@@ -154,6 +154,11 @@ class Gibbs_ADAPT(UCCVQE):
             plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
             self.S = -sum(plogp)
             self.F = self.U - (1 / self.beta) * self.S
+
+    def compute_relaxed_F(self, x):
+        self._tamps = list(x)
+        self.dm_update()
+        return self.compute_F(x)
 
     def compute_F(self, x):
         # Compute F without any relaxation of p and C.
