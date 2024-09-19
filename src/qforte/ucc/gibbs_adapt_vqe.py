@@ -107,6 +107,8 @@ class Gibbs_ADAPT(UCCVQE):
         return res.x
 
     def F_callback(self, x):
+        self._tamps = list(x)
+        self.dm_update()
         self.vqe_iter += 1
         print(
             f"{self.vqe_iter:>5}          {self.compute_F(x):16.12f}      {np.linalg.norm(self.compute_dF(x)):16.12f}"
