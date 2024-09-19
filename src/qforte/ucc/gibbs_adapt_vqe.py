@@ -210,6 +210,8 @@ class Gibbs_ADAPT(UCCVQE):
         S2_eff = self.C.T @ S2_eff @ self.C
         return np.diag(Sz_eff), np.diag(S2_eff)
 
+    
+
     def compute_dF3(self):
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
 
@@ -246,6 +248,11 @@ class Gibbs_ADAPT(UCCVQE):
         dF = np.einsum("ji,jku,ki->iu", self.C, dH, self.C)
         dF = np.einsum("i,iu->u", self.p, dF)
         return dF
+
+    def compute_relaxed_dF(self, x):
+        self._tamps = list(x)
+        self.dm_update()
+        return self.compute_dF(self, x)
 
     def compute_dF(self, x):
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
