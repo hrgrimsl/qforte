@@ -102,7 +102,7 @@ class Gibbs_ADAPT(UCCVQE):
             callback=self.F_callback,
             method="bfgs",
             options={"gtol": 1e-16, "disp": True},
-            jac=self.compute_dF,
+            jac=self.compute_relaxed_dF,
         )
         return res.x
 
