@@ -113,15 +113,12 @@ class Gibbs_ADAPT(UCCVQE):
 
     def F_callback(self, x):
         self._tamps = list(x)
-        T_cur = self.T
-        self.T = self.Tf
         self.dm_update()
         self.vqe_iter += 1
         print(
             f"{self.vqe_iter:>5}          {self.compute_F(x):16.12f}      {np.linalg.norm(self.compute_dF(x)):16.12f}"
         )
-        self.dm_update()
-        self.T = self.T_cur        
+        
 
     def report_dm(self):
         print("ρ = ")
@@ -131,9 +128,10 @@ class Gibbs_ADAPT(UCCVQE):
                 f"{self.p[i]:+20.16f} |{i}><{i}| (Sz = {Sz[i]:+20.16f}, S^2 = {S2[i]:20.16f})"
             )
         print("\n")
-        print(f"Internal Energy         U  = {self.U:+20.16f} Eh")
-        print(f"Entropy                 S  = {self.S:+20.16f} Eh^2/K")
-        print(f"Helmholtz Free Energy   F  = {self.F:+20.16f} Eh")
+        print(f"Current Temperature     T  = {self.T:+20.16f}")
+        print(f"Internal Energy         U  = {self.U:+20.16f}")
+        print(f"Entropy                 S  = {self.S:+20.16f}")
+        print(f"Helmholtz Free Energy   F  = {self.F:+20.16f}")
         print(f"Thermal Averaged Sz     Sz = {self.p.T@Sz:+20.16f}")
         print(f"Thermal Averaged S2     S2 = {self.p.T@S2:+20.16f}")
 
