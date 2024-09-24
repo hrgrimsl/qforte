@@ -41,7 +41,6 @@ class Gibbs_ADAPT(UCCVQE):
         print("*" * 30)
         print("Gibbs ADAPT-VQE\n")
 
-        print(f"T0 = {T} K")
         print(f"Dimension of ρ = {len(self._ref)}")
         print(f"Dimension of Fock Space = {pow(2,self._nqb)}")
         print(f"({100*len(self._ref)/pow(2, self._nqb):1.4f}% Saturation)")
@@ -79,8 +78,11 @@ class Gibbs_ADAPT(UCCVQE):
             else:
                 print("ADAPT is attempting to add the same operator. Re-optimizing.")
 
-            self.T = max(self.Tf, self.T * self.cooling_factor) 
+            
             self._tamps = list(self.Gibbs_VQE(self._tamps))
+            self.T = max(self.Tf, self.T * self.cooling_factor) 
+            self.beta = 1 / (kb * T0)
+            
             print("\ntoperators included from pool: \n", self._tops)
             print("\ntamplitudes for tops: \n", self._tamps)
         print(f"\nADAPT-VQE Ended With {len(self._tamps)} Operators.\n")
