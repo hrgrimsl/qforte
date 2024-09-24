@@ -15,21 +15,24 @@ kb = 3.1668115634564068e-06
 
 
 class Gibbs_ADAPT(UCCVQE):
-    def run(self, ref=None, pool_type="GSD", verbose=False, T=None, max_depth=10):
+    def run(self, ref=None, pool_type="GSD", verbose=False, T=None, max_depth=10, T0 = None, T_step = 0):
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
         self._pool_type = pool_type
         self._compact_excitations = True
         self.fill_pool()
         self._ref = ref
-        self.T = T
+        self.T = T0
+        self.T_step = T_step
+        self.Tf = T
+        self.T0 = T0
         self.C = None
         self.p = None
         try:
-            self.beta = 1 / (kb * T)
+            self.beta = 1 / (kb * T0)
         except:
             print(
-                f"""{T} should be a positive float. 
+                f"""T0 should be a positive float. 
                   (You can obtain T = 0 results through normal ADAPT-VQE,
                   or by using a single reference with any temperature.)"""
             )
@@ -38,7 +41,7 @@ class Gibbs_ADAPT(UCCVQE):
         print("*" * 30)
         print("Gibbs ADAPT-VQE\n")
 
-        print(f"T = {T} K")
+        print(f"T0 = {T} K")
         print(f"Dimension of ρ = {len(self._ref)}")
         print(f"Dimension of Fock Space = {pow(2,self._nqb)}")
         print(f"({100*len(self._ref)/pow(2, self._nqb):1.4f}% Saturation)")
@@ -74,7 +77,9 @@ class Gibbs_ADAPT(UCCVQE):
                 self._tamps.append(0.0)
 
             else:
-                print("Reoptimizing parameters after updating distribution.")
+                print("ADAPT is attempting to add the same operator. Re-optimizing.")
+
+            self.T = min(self.Tf, self.T0 - self.T_step) 
             self._tamps = list(self.Gibbs_VQE(self._tamps))
 
         print(f"\nADAPT-VQE Ended With {len(self._tamps)} Operators.\n")
@@ -108,11 +113,15 @@ class Gibbs_ADAPT(UCCVQE):
 
     def F_callback(self, x):
         self._tamps = list(x)
+        T_cur = self.T
+        self.T = self.Tf
         self.dm_update()
         self.vqe_iter += 1
         print(
             f"{self.vqe_iter:>5}          {self.compute_F(x):16.12f}      {np.linalg.norm(self.compute_dF(x)):16.12f}"
         )
+        self.dm_update()
+        self.T = self.T_cur        
 
     def report_dm(self):
         print("ρ = ")
