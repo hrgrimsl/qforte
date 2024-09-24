@@ -80,7 +80,7 @@ class Gibbs_ADAPT(UCCVQE):
             
             self._tamps = list(self.Gibbs_VQE(self._tamps))
             if len(self._tamps) < len(self.T_schedule):
-                self.T = self.T_schedule[self._tamps[len(self._tamps)]]
+                self.T = self.T_schedule[len(self._tamps)]
                 self.beta = 1 / (kb * self.T)
             
             print("\ntoperators included from pool: \n", self._tops)
