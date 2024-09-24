@@ -81,7 +81,7 @@ class Gibbs_ADAPT(UCCVQE):
             
             self._tamps = list(self.Gibbs_VQE(self._tamps))
             self.T = max(self.Tf, self.T * self.cooling_factor) 
-            self.beta = 1 / (kb * T0)
+            self.beta = 1 / (kb * self.T)
             
             print("\ntoperators included from pool: \n", self._tops)
             print("\ntamplitudes for tops: \n", self._tamps)
