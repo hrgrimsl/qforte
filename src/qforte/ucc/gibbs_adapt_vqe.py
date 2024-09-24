@@ -53,7 +53,7 @@ class Gibbs_ADAPT(UCCVQE):
             print("\n", flush=True)
             print(f"ADAPT Iteration {self._adapt_iter} ({len(self._tops)} Operators)")
             print("\n")
-            self.beta = 1 / (kb * self.T)
+            self.beta = 1 / (kb * self.T_schedule[-1])
             self.dm_update()
             if np.amin(self.p) <= 1e-12:
                 print("A state is missing entirely. Going hot.")    
