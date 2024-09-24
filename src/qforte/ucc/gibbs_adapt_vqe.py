@@ -139,7 +139,7 @@ class Gibbs_ADAPT(UCCVQE):
         Sz, S2 = self.compute_spins(self._tamps)
         for i in range(len(self._ref)):
             print(
-                f"{self.p[i]:+20.16f} |{i}><{i}| (Sz = {Sz[i]:+20.16f}, S^2 = {S2[i]:20.16f})"
+                f"{self.p[i]:+20.16f} |{i}><{i}| (Sz = {Sz[i]:+20.16f}, S^2 = {S2[i]:20.16f}, Energy = {self.w[i]})"
             )
         print("\n")
         print(f"Current Temperature     T  = {self.T:+20.16f}")
@@ -167,7 +167,7 @@ class Gibbs_ADAPT(UCCVQE):
             sigma = np.array(sigmas).real
             kets = np.array(kets).real
             H_eff = sigma @ kets.T
-            w, self.C = np.linalg.eigh(H_eff)
+            self.w, self.C = np.linalg.eigh(H_eff)
 
             # Compute Boltzmann probabilities
             q = np.exp(-self.beta * (w - w[0]))
