@@ -15,21 +15,20 @@ kb = 3.1668115634564068e-06
 
 
 class Gibbs_ADAPT(UCCVQE):
-    def run(self, ref=None, pool_type="GSD", verbose=False, T=None, max_depth=10, T0 = None, cooling_factor = 1):
+    def run(self, ref=None, pool_type="GSD", verbose=False, max_depth=10, T_schedule = []):
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
         self._pool_type = pool_type
         self._compact_excitations = True
         self.fill_pool()
         self._ref = ref
-        self.T = T0
-        self.cooling_factor = cooling_factor
-        self.Tf = T
-        self.T0 = T0
+        self.T = T_schedule[0] 
+        self.T_schedule = T_schedule 
+        
         self.C = None
         self.p = None
         try:
-            self.beta = 1 / (kb * T0)
+            self.beta = 1 / (kb * self.T)
         except:
             print(
                 f"""T0 should be a positive float. 
@@ -80,8 +79,9 @@ class Gibbs_ADAPT(UCCVQE):
 
             
             self._tamps = list(self.Gibbs_VQE(self._tamps))
-            self.T = max(self.Tf, self.T * self.cooling_factor) 
-            self.beta = 1 / (kb * self.T)
+            if len(self._tamps) < len(self.T_schedule):
+                self.T = self.T_schedule[self._tamps[len(self._tamps)]]
+                self.beta = 1 / (kb * self.T)
             
             print("\ntoperators included from pool: \n", self._tops)
             print("\ntamplitudes for tops: \n", self._tamps)
@@ -93,7 +93,6 @@ class Gibbs_ADAPT(UCCVQE):
                 f"{self._tops[i]:<4}  {self._tamps[i]:+8.12f}  {self._pool_obj[self._tops[i]][1].terms()[1][2]} <--> {self._pool_obj[self._tops[i]][1].terms()[1][1]}"
             )
         print("\n")
-        self.dm_update()
         self.report_dm()
         print("\n")
         return self.U, self.S, self.F
@@ -124,6 +123,9 @@ class Gibbs_ADAPT(UCCVQE):
         
 
     def report_dm(self):
+        b = copy.deepcopy(self.beta)
+        self.beta = (1/self.T_schedule[-1])
+        self.dm_update()
         print("ρ = ")
         Sz, S2 = self.compute_spins(self._tamps)
         for i in range(len(self._ref)):
@@ -137,6 +139,8 @@ class Gibbs_ADAPT(UCCVQE):
         print(f"Helmholtz Free Energy   F  = {self.F:+20.16f}")
         print(f"Thermal Averaged Sz     Sz = {self.p.T@Sz:+20.16f}")
         print(f"Thermal Averaged S2     S2 = {self.p.T@S2:+20.16f}")
+        self.beta = b
+        self.dm_update()
 
     def dm_update(self):
         if self._state_prep_type == "computer":
