@@ -15,7 +15,7 @@ kb = 3.1668115634564068e-06
 
 
 class Gibbs_ADAPT(UCCVQE):
-    def run(self, ref=None, pool_type="GSD", verbose=False, T=None, max_depth=10, T0 = None, T_step = 0):
+    def run(self, ref=None, pool_type="GSD", verbose=False, T=None, max_depth=10, T0 = None, cooling_factor = 1):
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
         self._pool_type = pool_type
@@ -23,7 +23,7 @@ class Gibbs_ADAPT(UCCVQE):
         self.fill_pool()
         self._ref = ref
         self.T = T0
-        self.T_step = T_step
+        self.cooling_factor = cooling_factor
         self.Tf = T
         self.T0 = T0
         self.C = None
@@ -79,7 +79,7 @@ class Gibbs_ADAPT(UCCVQE):
             else:
                 print("ADAPT is attempting to add the same operator. Re-optimizing.")
 
-            self.T = min(self.Tf, self.T0 - self.T_step) 
+            self.T = max(self.Tf, self.T * self.cooling_factor) 
             self._tamps = list(self.Gibbs_VQE(self._tamps))
 
         print(f"\nADAPT-VQE Ended With {len(self._tamps)} Operators.\n")
