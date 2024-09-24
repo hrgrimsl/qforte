@@ -22,7 +22,7 @@ class Gibbs_ADAPT(UCCVQE):
         self._compact_excitations = True
         self.fill_pool()
         self._ref = ref
-        self.T = T_schedule[0] 
+        self.T = T_schedule[-1] 
         self.T_schedule = T_schedule 
         
         self.C = None
@@ -79,8 +79,9 @@ class Gibbs_ADAPT(UCCVQE):
 
             
             self._tamps = list(self.Gibbs_VQE(self._tamps))
-            if len(self._tamps) < len(self.T_schedule):
-                self.T = self.T_schedule[len(self._tamps)]
+            if np.amin(self.p) == 0:    
+                self.beta = 1e14
+            else:
                 self.beta = 1 / (kb * self.T)
             
             print("\ntoperators included from pool: \n", self._tops)
