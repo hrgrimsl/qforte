@@ -79,7 +79,8 @@ class Gibbs_ADAPT(UCCVQE):
 
             
             self._tamps = list(self.Gibbs_VQE(self._tamps))
-            if np.amin(self.p) == 0:    
+            if np.amin(self.p) <= 1e-12:
+                print("A state is missing entirely. Going hot.")    
                 self.beta = 1e14
             else:
                 self.beta = 1 / (kb * self.T)
