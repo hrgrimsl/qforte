@@ -124,7 +124,7 @@ class Gibbs_ADAPT(UCCVQE):
 
     def report_dm(self):
         b = copy.deepcopy(self.beta)
-        self.beta = (1/self.T_schedule[-1])
+        self.beta = (1/(kb*self.T_schedule[-1]))
         self.dm_update()
         print("ρ = ")
         Sz, S2 = self.compute_spins(self._tamps)
