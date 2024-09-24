@@ -81,7 +81,8 @@ class Gibbs_ADAPT(UCCVQE):
 
             self.T = max(self.Tf, self.T * self.cooling_factor) 
             self._tamps = list(self.Gibbs_VQE(self._tamps))
-
+            print("\ntoperators included from pool: \n", self._tops)
+            print("\ntamplitudes for tops: \n", self._tamps)
         print(f"\nADAPT-VQE Ended With {len(self._tamps)} Operators.\n")
 
         print(f"Ansatz (First Operator Applied First to Reference)\n")
