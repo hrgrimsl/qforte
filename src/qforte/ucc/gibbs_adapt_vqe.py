@@ -53,6 +53,13 @@ class Gibbs_ADAPT(UCCVQE):
             print("\n", flush=True)
             print(f"ADAPT Iteration {self._adapt_iter} ({len(self._tops)} Operators)")
             print("\n")
+            self.beta = 1 / (kb * self.T)
+            if np.amin(self.p) <= 1e-12:
+                print("A state is missing entirely. Going hot.")    
+                self.T = 1e14
+            else:
+                self.T = self.T_schedule[-1]
+            
             self.dm_update()
             self.report_dm()
             self._adapt_iter += 1
@@ -78,13 +85,10 @@ class Gibbs_ADAPT(UCCVQE):
                 print("ADAPT is attempting to add the same operator. Re-optimizing.")
 
             
+            
             self._tamps = list(self.Gibbs_VQE(self._tamps))
-            if np.amin(self.p) <= 1e-12:
-                print("A state is missing entirely. Going hot.")    
-                self.T = 1e14
-            else:
-                self.T = self.T_schedule[-1]
-            self.beta = 1 / (kb * self.T)
+            
+            
             
             print("\ntoperators included from pool: \n", self._tops)
             print("\ntamplitudes for tops: \n", self._tamps)
@@ -96,8 +100,8 @@ class Gibbs_ADAPT(UCCVQE):
                 f"{self._tops[i]:<4}  {self._tamps[i]:+8.12f}  {self._pool_obj[self._tops[i]][1].terms()[1][2]} <--> {self._pool_obj[self._tops[i]][1].terms()[1][1]}"
             )
         print("\n")
-        self.report_dm()
-        print("\n")
+        
+        
         return self.U, self.S, self.F
 
     def Gibbs_VQE(self, x):
