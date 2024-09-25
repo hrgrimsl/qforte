@@ -170,10 +170,10 @@ class Gibbs_ADAPT(UCCVQE):
             self.w, self.C = np.linalg.eigh(H_eff)
 
             # Compute Boltzmann probabilities
-            q = np.exp(-self.beta * (w - w[0]))
+            q = np.exp(-self.beta * (self.w - self.w[0]))
             Z = np.sum(q)
             self.p = q / Z
-            self.U = w.T @ self.p
+            self.U = self.w.T @ self.p
             plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
             self.S = -sum(plogp)
             self.F = self.U - (1 / self.beta) * self.S
