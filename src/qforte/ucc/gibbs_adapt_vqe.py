@@ -53,6 +53,8 @@ class Gibbs_ADAPT(UCCVQE):
             print("\n", flush=True)
             print(f"ADAPT Iteration {self._adapt_iter} ({len(self._tops)} Operators)")
             print("\n")
+            self.dm_update()
+            self.report_dm()
             if np.amin(self.p) <= 1e-12:
                 print("A state is missing entirely. Going hot.")    
                 self.T = "Inf"
@@ -60,8 +62,7 @@ class Gibbs_ADAPT(UCCVQE):
                 self.T = self.T_schedule[-1]
             
 
-            self.dm_update()
-            self.report_dm()
+            
             self._adapt_iter += 1
             op_grads = self.compute_dF3()
             idx = np.argsort(abs(op_grads))
