@@ -141,7 +141,6 @@ class Gibbs_ADAPT(UCCVQE):
                 f"{self.p[i]:+20.16f} |{i}><{i}| (Sz = {Sz[i]:+20.16f}, S^2 = {S2[i]:20.16f}, Energy = {self.w[i]})"
             )
         print("\n")
-        print(f"Current Temperature     T  = {self.T:+20.16f}")
         print(f"Internal Energy         U  = {self.U:+20.16f}")
         print(f"Entropy                 S  = {self.S:+20.16f}")
         print(f"Helmholtz Free Energy   F  = {self.F:+20.16f}")
