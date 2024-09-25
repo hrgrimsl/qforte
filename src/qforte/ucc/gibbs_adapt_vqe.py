@@ -53,6 +53,7 @@ class Gibbs_ADAPT(UCCVQE):
             print("\n", flush=True)
             print(f"ADAPT Iteration {self._adapt_iter} ({len(self._tops)} Operators)")
             print("\n")
+            self.T = self.T_schedule[-1]
             self.dm_update()
             self.report_dm()
             if np.amin(self.p) <= 1e-12:
@@ -60,7 +61,7 @@ class Gibbs_ADAPT(UCCVQE):
                 self.T = "Inf"
             else:
                 self.T = self.T_schedule[-1]
-            
+            self.dm_update()
 
             
             self._adapt_iter += 1
@@ -132,6 +133,7 @@ class Gibbs_ADAPT(UCCVQE):
 
     def report_dm(self):
         b = copy.deepcopy(self.beta)
+        self.T = self.T_schedule[-1]
         self.beta = (1/(kb*self.T_schedule[-1]))
         self.dm_update()
         print("ρ = ")
@@ -208,7 +210,7 @@ class Gibbs_ADAPT(UCCVQE):
             plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
             S = -sum(plogp)
             if self.T == "Inf":
-                print("Warning: Only Returning U as the Helmholtz energy for infinite temperature.")
+                #S contribution will be infinite.  Only U is well-defined and needs to be optimized.
                 return U
             F = U - (1 / self.beta) * S
             return F
