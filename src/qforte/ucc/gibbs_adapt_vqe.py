@@ -31,7 +31,7 @@ class Gibbs_ADAPT(UCCVQE):
             self.beta = 1 / (kb * self.T)
         except:
             print(
-                f"""T0 should be a positive float. 
+                f"""T0 should be a positive float or \"Inf\". 
                   (You can obtain T = 0 results through normal ADAPT-VQE,
                   or by using a single reference with any temperature.)"""
             )
@@ -53,14 +53,12 @@ class Gibbs_ADAPT(UCCVQE):
             print("\n", flush=True)
             print(f"ADAPT Iteration {self._adapt_iter} ({len(self._tops)} Operators)")
             print("\n")
-            self.beta = 1 / (kb * self.T_schedule[-1])
-            self.dm_update()
             if np.amin(self.p) <= 1e-12:
                 print("A state is missing entirely. Going hot.")    
-                self.T = 1e14
+                self.T = "Inf"
             else:
                 self.T = self.T_schedule[-1]
-            self.beta = 1 / (kb * self.T)
+            
 
             self.dm_update()
             self.report_dm()
@@ -170,7 +168,10 @@ class Gibbs_ADAPT(UCCVQE):
             self.w, self.C = np.linalg.eigh(H_eff)
 
             # Compute Boltzmann probabilities
-            q = np.exp(-self.beta * (self.w - self.w[0]))
+            if self.T == "Inf":
+                q = np.ones(len(self.w))/len(self.w)
+            else:
+                q = np.exp(-self.beta * (self.w - self.w[0]))
             Z = np.sum(q)
             self.p = q / Z
             self.U = self.w.T @ self.p
@@ -206,6 +207,9 @@ class Gibbs_ADAPT(UCCVQE):
             U = np.diag(H_eff) @ self.p
             plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
             S = -sum(plogp)
+            if self.T == "Inf":
+                print("Warning: Only Returning U as the Helmholtz energy for infinite temperature.")
+                return U
             F = U - (1 / self.beta) * S
             return F
 
