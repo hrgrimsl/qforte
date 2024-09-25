@@ -56,8 +56,8 @@ class Gibbs_ADAPT(UCCVQE):
             self.T = self.T_schedule[-1]
             self.dm_update()
             self.report_dm()
-            if np.amin(self.p) <= 1e-12:
-                print("A state is missing entirely. Going hot.")    
+            if np.amin(self.p) <= 1e-3:
+                print("A state is almost ignored. Going hot.")    
                 self.T = "Inf"
             else:
                 self.T = self.T_schedule[-1]
