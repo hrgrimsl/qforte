@@ -38,7 +38,7 @@ class Gibbs_ADAPT(UCCVQE):
         self._adapt_iter = 0
         self._tops = []
         self._tamps = []
-
+        self.dm_update()
         while len(self._tops) < max_depth:
             print("\n")
             print("*" * 32)
