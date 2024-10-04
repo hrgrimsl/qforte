@@ -15,7 +15,7 @@ kb = 3.1668115634564068e-06
 
 
 class Gibbs_ADAPT(UCCVQE):
-    def run(self, ref=None, pool_type="GSD", max_depth=10, T = 0, opt_thresh = 1e-16):
+    def run(self, ref=None, pool_type="GSD", max_depth=10, T=0, opt_thresh=1e-16):
         self.opt_thresh = opt_thresh
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
@@ -24,16 +24,16 @@ class Gibbs_ADAPT(UCCVQE):
         self.fill_pool()
         self._ref = ref
         self.T = T
-         
+
         self.C = None
         self.p = None
-        
+
         if self.T != 0 and self.T != "Inf":
             self.beta = 1 / (kb * self.T)
         if self.T == "Inf":
             self.beta = 0
         print("*" * 30)
-        print("PEPSI-ADAPT-VQE\n")        
+        print("PEPSI-ADAPT-VQE\n")
         print("*" * 30)
         self._adapt_iter = 0
         self._tops = []
@@ -47,14 +47,14 @@ class Gibbs_ADAPT(UCCVQE):
             print("\n")
             self.dm_update()
             self.report_dm()
-            
+
             self._adapt_iter += 1
             op_grads = self.compute_dF3()
             idx = np.argsort(abs(op_grads))
             print("\n")
 
             if len(self._tops) != 0 and self._tops[-1] == idx[-1]:
-                print(f"PEPSI-ADAPT-VQE is stuck on the same operator.  Aborting.")                
+                print(f"PEPSI-ADAPT-VQE is stuck on the same operator.  Aborting.")
 
             else:
                 print(f"Operator Addition Gradients:")
@@ -62,18 +62,18 @@ class Gibbs_ADAPT(UCCVQE):
                 print(f"Adding operator {idx[-1]} with gradient {op_grads[idx[-1]]}")
                 print(self._pool_obj[idx[-1]][1])
                 self._tops.append(idx[-1])
-                
+
                 self._tamps = np.array(list(self._tamps) + [0.0])
                 self._tamps = self.Gibbs_VQE(self._tamps)
 
                 print(f"\nOperators at {self._adapt_iter} iterations:", *self._tops)
                 print(f"\nAmplitudes at {self._adapt_iter} iterations:", *self._tamps)
-        
+
                 print(f"Ansatz (First Operator Applied First to Reference)\n")
                 for i in range(len(self._tops)):
                     print(
                         f"{self._tops[i]:<4}  {self._tamps[i]:+8.12f}  {self._pool_obj[self._tops[i]][1].terms()[1][2]} <--> {self._pool_obj[self._tops[i]][1].terms()[1][1]}"
-                        )
+                    )
                 print("\n")
         return self.U, self.S, self.F
 
@@ -86,17 +86,19 @@ class Gibbs_ADAPT(UCCVQE):
         res = scipy.optimize.minimize(
             self.compute_F,
             self._tamps,
-            jac = self.compute_dF,  
+            jac=self.compute_dF,
             callback=self.F_callback,
             method="bfgs",
-            options={"gtol": self.opt_thresh, "disp": True}
+            options={"gtol": self.opt_thresh, "disp": True},
         )
         return res.x
 
     def F_callback(self, x):
         self.vqe_iter += 1
-        print(f"{self.vqe_iter:>6}          {self.F:+20.16f}        {self.dF_norm:+20.16f}")     
-        
+        print(
+            f"{self.vqe_iter:>6}          {self.F:+20.16f}        {self.dF_norm:+20.16f}"
+        )
+
     def report_dm(self):
         print("ρ = ")
         Sz, S2 = self.compute_spins(self._tamps)
@@ -110,7 +112,7 @@ class Gibbs_ADAPT(UCCVQE):
         print(f"Helmholtz Free Energy   F  = {self.F:+20.16f}")
         print(f"Thermal Averaged Sz     Sz = {self.p.T@Sz:+20.16f}")
         print(f"Thermal Averaged S2     S2 = {self.p.T@S2:+20.16f}")
-        
+
     def dm_update(self):
         if self._state_prep_type == "computer":
             sigmas = []
@@ -130,7 +132,7 @@ class Gibbs_ADAPT(UCCVQE):
             self.w, self.C = np.linalg.eigh(H_eff)
             # Compute Boltzmann probabilities
             if self.T == "Inf":
-                q = np.ones(len(self.w))/len(self.w)
+                q = np.ones(len(self.w)) / len(self.w)
             elif self.T == 0:
                 q = np.zeros(len(self.w))
                 q[0] = 1
@@ -142,8 +144,8 @@ class Gibbs_ADAPT(UCCVQE):
             plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
             self.S = -sum(plogp)
             self.F = self.U - (1 / self.beta) * self.S
-    
-    def compute_F(self, x): 
+
+    def compute_F(self, x):
         if self._state_prep_type == "computer":
             sigmas = []
             kets = []
@@ -161,7 +163,7 @@ class Gibbs_ADAPT(UCCVQE):
             self.w, self.C = np.linalg.eigh(H_eff)
             # Compute Boltzmann probabilities
             if self.T == "Inf":
-                q = np.ones(len(self.w))/len(self.w)
+                q = np.ones(len(self.w)) / len(self.w)
             elif self.T == 0:
                 q = np.zeros(len(self.w))
                 q[0] = 1
@@ -199,7 +201,7 @@ class Gibbs_ADAPT(UCCVQE):
         Sz_eff = self.C.T @ Sz_eff @ self.C
         S2_eff = self.C.T @ S2_eff @ self.C
         return np.diag(Sz_eff), np.diag(S2_eff)
-    
+
     def compute_dF3(self):
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
 
