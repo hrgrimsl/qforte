@@ -9,7 +9,7 @@ from qforte.abc.uccvqeabc import UCCVQE
 
 import numpy as np
 import scipy
-import copy
+import pprint
 
 kb = 3.1668115634564068e-06
 
@@ -38,7 +38,7 @@ class Gibbs_ADAPT(UCCVQE):
         self._adapt_iter = 0
         self._tops = []
         self._tamps = []
-        self.dm_update()
+
         while len(self._tops) < max_depth:
             print("\n")
             print("*" * 32)
@@ -62,13 +62,17 @@ class Gibbs_ADAPT(UCCVQE):
                 print(f"Adding operator {idx[-1]} with gradient {op_grads[idx[-1]]}")
                 print(self._pool_obj[idx[-1]][1])
                 self._tops.append(idx[-1])
-
                 self._tamps = np.array(list(self._tamps) + [0.0])
                 self._tamps = self.Gibbs_VQE(self._tamps)
-
                 print(f"\nOperators at {self._adapt_iter} iterations:", *self._tops)
-                print(f"\nAmplitudes at {self._adapt_iter} iterations:", *self._tamps)
-
+                print(
+                    f"\nAmplitudes at {self._adapt_iter} iterations:",
+                    *list(self._tamps),
+                )
+                print(f"\nEnsemble Weights at {self._adapt_iter} iterations:", *self.p)
+                print(f"\nCI Coefficients at {self._adapt_iter} iterations\n")
+                for i in range(self.C.shape[0]):
+                    print(*list(self.C[i, :]))
                 print(f"Ansatz (First Operator Applied First to Reference)\n")
                 for i in range(len(self._tops)):
                     print(
@@ -78,20 +82,31 @@ class Gibbs_ADAPT(UCCVQE):
         return self.U, self.S, self.F
 
     def Gibbs_VQE(self, x):
-        self.vqe_iter = 0
-        print(f"VQE Iter.      Free Energy (Eh)     gnorm")
-        self.F = self.compute_F(x)
-        self.compute_dF(x)
-        self.F_callback(x)
-        res = scipy.optimize.minimize(
-            self.compute_F,
-            self._tamps,
-            jac=self.compute_dF,
-            callback=self.F_callback,
-            method="bfgs",
-            options={"gtol": self.opt_thresh, "disp": True},
-        )
-        return res.x
+        macro_iter = 0
+        prev_res = self.compute_F(x)
+        self.dm_update()
+        while True:
+            macro_iter += 1
+            self.vqe_iter = 0
+            print(f"Macro-Iter. {macro_iter} VQE Iter.      Free Energy (Eh)     gnorm")
+            self.compute_dF(x)
+            self.F_callback(x)
+            res = scipy.optimize.minimize(
+                self.compute_F,
+                x,
+                jac=self.compute_dF,
+                callback=self.F_callback,
+                method="bfgs",
+                options={"gtol": self.opt_thresh, "disp": True},
+            )
+            self._tamps = res.x
+            self.dm_update()
+
+            if abs(res.fun - prev_res) < 1e-12:
+                return res.x
+            else:
+                print(res.fun - prev_res)
+            prev_res = res.fun
 
     def F_callback(self, x):
         self.vqe_iter += 1
@@ -130,6 +145,7 @@ class Gibbs_ADAPT(UCCVQE):
             kets = np.array(kets).real
             H_eff = sigma @ kets.T
             self.w, self.C = np.linalg.eigh(H_eff)
+
             # Compute Boltzmann probabilities
             if self.T == "Inf":
                 q = np.ones(len(self.w)) / len(self.w)
@@ -160,23 +176,9 @@ class Gibbs_ADAPT(UCCVQE):
             sigma = np.array(sigmas).real
             kets = np.array(kets).real
             H_eff = sigma @ kets.T
-            self.w, self.C = np.linalg.eigh(H_eff)
-            # Compute Boltzmann probabilities
-            if self.T == "Inf":
-                q = np.ones(len(self.w)) / len(self.w)
-            elif self.T == 0:
-                q = np.zeros(len(self.w))
-                q[0] = 1
-            else:
-                q = np.exp(-self.beta * (self.w - self.w[0]))
-            Z = np.sum(q)
-            self.p = q / Z
-            self.U = self.w.T @ self.p
-            plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
-            self.S = -sum(plogp)
-            self.F = self.U - (1 / self.beta) * self.S
-            H_eff = self.C.T @ H_eff @ self.C
-            return self.F
+            w = np.diag(self.C.T @ H_eff @ self.C)
+            F = w @ self.p - (1 / self.beta) * self.S
+        return F
 
     def compute_spins(self, x):
         Sz_sigmas = []
@@ -241,7 +243,6 @@ class Gibbs_ADAPT(UCCVQE):
 
     def compute_dF(self, x):
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
-
         alphas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
         sigmas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
         U = self.build_Uvqc(x)
