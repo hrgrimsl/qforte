@@ -15,7 +15,7 @@ kb = 3.1668115634564068e-06
 
 
 class Gibbs_ADAPT(UCCVQE):
-    def run(self, ref=None, pool_type="GSD", max_depth=10, T=0, opt_thresh=1e-16):
+    def run(self, ref=None, pool_type="GSD", max_depth=10, T=0, opt_thresh=1e-16, C = None, p = None, tamps = [], tops = []):
         self.opt_thresh = opt_thresh
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
@@ -25,8 +25,10 @@ class Gibbs_ADAPT(UCCVQE):
         self._ref = ref
         self.T = T
 
-        self.C = None
-        self.p = None
+        self.C = C
+        self.p = p
+        self._tops = []
+        self._tamps = []
 
         if self.T != 0 and self.T != "Inf":
             self.beta = 1 / (kb * self.T)
@@ -35,9 +37,8 @@ class Gibbs_ADAPT(UCCVQE):
         print("*" * 30)
         print("PEPSI-ADAPT-VQE\n")
         print("*" * 30)
-        self._adapt_iter = 0
-        self._tops = []
-        self._tamps = []
+        self._adapt_iter = len(self._tamps)
+        
 
         while len(self._tops) < max_depth:
             print("\n")
@@ -70,7 +71,7 @@ class Gibbs_ADAPT(UCCVQE):
                     *list(self._tamps),
                 )
                 print(f"\nEnsemble Weights at {self._adapt_iter} iterations:", *self.p)
-                print(f"\nCI Coefficients at {self._adapt_iter} iterations\n")
+                print(f"\nCI Coefficients at {self._adapt_iter} iterations:\n")
                 for i in range(self.C.shape[0]):
                     print(*list(self.C[i, :]))
                 print(f"Ansatz (First Operator Applied First to Reference)\n")
@@ -102,7 +103,7 @@ class Gibbs_ADAPT(UCCVQE):
             self._tamps = res.x
             self.dm_update()
 
-            if abs(res.fun - prev_res) < 1e-12:
+            if abs(res.fun - prev_res) < 1e-8 or macro_iter > 20:
                 return res.x
             else:
                 print(res.fun - prev_res)
