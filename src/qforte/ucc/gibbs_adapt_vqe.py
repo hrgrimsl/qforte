@@ -105,6 +105,8 @@ class Gibbs_ADAPT(UCCVQE):
             self.dm_update()
 
             if abs(self.F - prev_res) < 1e-10 or macro_iter == 20:
+                if macro_iter == 20:
+                    print(f"Maximum number of macro-iterations reached.  (dE = f{self.F - prev_res})")
                 return res.x
             else:
                 print(self.F - prev_res)
