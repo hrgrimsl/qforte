@@ -89,6 +89,7 @@ class Gibbs_ADAPT(UCCVQE):
             macro_iter += 1
             self.vqe_iter = 0
             print(f"Macro-Iter. {macro_iter} VQE Iter.      Free Energy (Eh)     gnorm")
+            self.compute_F(x)
             self.compute_dF(x)
             self.F_callback(x)
             res = scipy.optimize.minimize(
@@ -99,6 +100,7 @@ class Gibbs_ADAPT(UCCVQE):
                 method="bfgs",
                 options={"gtol": self.opt_thresh, "disp": True, "maxiter": 10},
             )
+            x = res.x
             self._tamps = res.x
             self.dm_update()
 
