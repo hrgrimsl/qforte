@@ -108,7 +108,7 @@ class Gibbs_ADAPT(UCCVQE):
                 return res.x
             else:
                 print(self.F - prev_res)
-            prev_res = res.F
+            prev_res = self.F
 
     def F_callback(self, x): 
         print(
