@@ -55,7 +55,7 @@ class Gibbs_ADAPT(UCCVQE):
 
             if len(self._tops) != 0 and self._tops[-1] == idx[-1]:
                 print(f"PEPSI-ADAPT-VQE is stuck on the same operator.  Aborting.")
-
+                break
             else:
                 print(f"Operator Addition Gradients:")
                 print(f"Norm of Gradients: {np.linalg.norm(op_grads)}")
