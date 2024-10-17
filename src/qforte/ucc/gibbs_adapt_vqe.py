@@ -104,11 +104,11 @@ class Gibbs_ADAPT(UCCVQE):
             self._tamps = res.x
             self.dm_update()
 
-            if abs(res.fun - prev_res) < 1e-10:
+            if abs(self.F - prev_res) < 1e-10:
                 return res.x
             else:
-                print(res.fun - prev_res)
-            prev_res = res.fun
+                print(self.F - prev_res)
+            prev_res = res.F
 
     def F_callback(self, x): 
         print(
