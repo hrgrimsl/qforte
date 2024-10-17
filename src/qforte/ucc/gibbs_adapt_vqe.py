@@ -27,8 +27,8 @@ class Gibbs_ADAPT(UCCVQE):
 
         self.C = C
         self.p = p
-        self._tops = []
-        self._tamps = []
+        self._tops = tops
+        self._tamps = tamps
 
         if self.T != 0 and self.T != "Inf":
             self.beta = 1 / (kb * self.T)
