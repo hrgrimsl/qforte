@@ -98,7 +98,7 @@ class Gibbs_ADAPT(UCCVQE):
                 jac=self.compute_dF,
                 callback=self.F_callback,
                 method="bfgs",
-                options={"gtol": self.opt_thresh, "disp": True, "maxiter": 10},
+                options={"gtol": self.opt_thresh, "disp": True, "maxiter": 20},
             )
             x = res.x
             self._tamps = res.x
@@ -110,11 +110,11 @@ class Gibbs_ADAPT(UCCVQE):
                 print(res.fun - prev_res)
             prev_res = res.fun
 
-    def F_callback(self, x):
-        self.vqe_iter += 1
+    def F_callback(self, x): 
         print(
             f"{self.vqe_iter:>6}          {self.compute_F(x):+20.16f}        {self.dF_norm:+20.16f}"
         )
+        self.vqe_iter += 1
 
     def report_dm(self):
         print("ρ = ")
