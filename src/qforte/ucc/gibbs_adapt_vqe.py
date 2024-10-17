@@ -107,7 +107,7 @@ class Gibbs_ADAPT(UCCVQE):
             if abs(self.F - prev_res) < 1e-10:
                 return res.x
             else:
-                print(self.F - prev_res)
+                print(self.F - prev_res, flush = True)
             prev_res = self.F
 
     def F_callback(self, x): 
