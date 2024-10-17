@@ -111,7 +111,7 @@ class Gibbs_ADAPT(UCCVQE):
     def F_callback(self, x):
         self.vqe_iter += 1
         print(
-            f"{self.vqe_iter:>6}          {self.F:+20.16f}        {self.dF_norm:+20.16f}"
+            f"{self.vqe_iter:>6}          {self.compute_F(x):+20.16f}        {self.dF_norm:+20.16f}"
         )
 
     def report_dm(self):
