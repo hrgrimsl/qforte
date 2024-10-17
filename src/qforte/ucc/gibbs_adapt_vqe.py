@@ -97,12 +97,12 @@ class Gibbs_ADAPT(UCCVQE):
                 jac=self.compute_dF,
                 callback=self.F_callback,
                 method="bfgs",
-                options={"gtol": self.opt_thresh, "disp": True},
+                options={"gtol": self.opt_thresh, "disp": True, "maxiter": 10},
             )
             self._tamps = res.x
             self.dm_update()
 
-            if abs(res.fun - prev_res) < 1e-8 or macro_iter > 20:
+            if abs(res.fun - prev_res) < 1e-10:
                 return res.x
             else:
                 print(res.fun - prev_res)
