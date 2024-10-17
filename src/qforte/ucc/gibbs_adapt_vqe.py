@@ -98,7 +98,7 @@ class Gibbs_ADAPT(UCCVQE):
                 jac=self.compute_dF,
                 callback=self.F_callback,
                 method="bfgs",
-                options={"gtol": self.opt_thresh, "disp": True, "maxiter": 20},
+                options={"gtol": self.opt_thresh, "disp": True, "maxiter": 5},
             )
             x = res.x
             self._tamps = res.x
