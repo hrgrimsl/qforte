@@ -100,7 +100,6 @@ def create_psi_mol(**kwargs):
             "e_convergence": 1e-8,
             "d_convergence": 1e-8,
             "ci_maxiter": 100,
-            "maxiter": 1000,
             "num_frozen_docc": kwargs["num_frozen_docc"],
             "num_frozen_uocc": kwargs["num_frozen_uocc"],
             "mp2_type": "conv",
