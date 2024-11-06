@@ -123,8 +123,8 @@ void SQOpPool::fill_pool(std::string pool_type) {
             size_t q = pairs[pq].second;
             if (!find_irrep(orb_irreps_to_int_, std::vector<size_t>{p, q})) {
                 SQOperator temp_single;
-                temp_single.add_term(+1.0, {p}, {q});
-                temp_single.add_term(-1.0, {q}, {p});
+                temp_single.add_term(+1.0, {q}, {p});
+                temp_single.add_term(-1.0, {p}, {q});
                 temp_single.simplify();
                 if (temp_single.terms().size() > 0) {
                     add_term(1.0, temp_single);
@@ -135,8 +135,8 @@ void SQOpPool::fill_pool(std::string pool_type) {
                 size_t s = pairs[rs].second;
                 if (!find_irrep(orb_irreps_to_int_, std::vector<size_t>{p, q, r, s})) {
                     SQOperator temp_double;
-                    temp_double.add_term(+1.0, {p, q}, {r, s});
-                    temp_double.add_term(-1.0, {s, r}, {p, q});
+                    temp_double.add_term(+1.0, {r, s}, {p, q});
+                    temp_double.add_term(-1.0, {q, p}, {s, r});
                     if (temp_double.terms().size() > 0) {
                         add_term(1.0, temp_double);
                     }
