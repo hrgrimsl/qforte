@@ -81,6 +81,64 @@ class Gibbs_ADAPT(UCCVQE):
                 print("\n")
         return self.U, self.S, self.F
 
+    """
+    def Gibbs_VQE_diis(self, x, max_iter = 1000, gtol = 1e-8):
+        max_diis_space = len(x)
+        diis_start = len(x)
+        print("Performing DIIS to optimize parameters.")
+        print("Iter.    U       S       F       gnorm")
+        #Trial vectors
+        vecs = [x]
+        #Gradients after optimizing C and ensemble weights
+        grads = []
+        for i in range(diis_start - 1):
+            self._tamps = vecs[-1]
+            self.dm_update() 
+            grads.append(self.compute_dF(vecs[-1]))
+            print(f"{i}     {self.U:+20.16f}     {self.S:+20.16f}     {self.F:+20.16f}      {np.linalg.norm(grads[-1]):20.16f}")
+            if len(grads) < 2:
+                vecs.append(vecs[-1] - grads[-1])
+            else:
+                hinv_approx = np.divide(vecs[-1] - vecs[-2], grads[-1] - grads[-2], 
+                                        out = np.zeros_like(vecs[-1] - vecs[-2]), where=grads[-1] - grads[-2] != 0)
+                vecs.append(vecs[-1] - np.multiply(hinv_approx, grads[-1]))
+        for i in range(0, max_iter-diis_start-1):
+            if len(vecs) > max_diis_space:
+                vecs = vecs[-max_diis_space:]
+                grads = grads[-max_diis_space+1:]
+                
+            self._tamps = vecs[-1]
+            self.dm_update()
+            
+            grads.append(self.compute_dF(vecs[-1]))
+            print(f"{i + diis_start - 1}     {self.U:+20.16f}     {self.S:+20.16f}     {self.F:+20.16f}      {np.linalg.norm(grads[-1]):20.16f}")
+            if np.linalg.norm(grads[-1]) < gtol:
+                return vecs[-1]
+            B_mat = np.zeros((len(grads)+1, len(grads)+1))
+            for j, gj in enumerate(grads):
+                B_mat[-1,j] = B_mat[j,-1] = 1
+                for k, gk in enumerate(grads):
+                    B_mat[j,k] = gj.T@gk
+            B_mat[-1,-1] = 0
+            rvec = np.zeros(B_mat.shape[0])
+            rvec[-1] = 1
+            c = np.linalg.pinv(B_mat)@rvec
+            
+            new_vec = np.zeros(len(x))
+            for j in range(len(c) - 1):
+                new_vec += c[j]*vecs[j]
+
+            
+            vecs.append(new_vec)
+            
+
+            
+            
+            
+        print(f"Maximum DIIS Iterations Exceeded")
+        """
+        
+
     def Gibbs_VQE(self, x):
         macro_iter = 0
         prev_res = self.compute_F(x)
@@ -98,13 +156,13 @@ class Gibbs_ADAPT(UCCVQE):
                 jac=self.compute_dF,
                 callback=self.F_callback,
                 method="bfgs",
-                options={"gtol": self.opt_thresh, "disp": True, "maxiter": 5},
+                options={"gtol": self.opt_thresh, "disp": True, "maxiter": 20},
             )
             x = res.x
             self._tamps = res.x
             self.dm_update()
 
-            if abs(self.F - prev_res) < 1e-16:
+            if abs(self.F - prev_res) < 1e-12:
                 return res.x
             else:
                 print(self.F - prev_res, flush = True)
