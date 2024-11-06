@@ -428,7 +428,7 @@ class AnsatzAlgorithm(Algorithm):
                 self._pool_obj = self._pool_type
         else:
             # Only GSD is well-defined for multiple references.
-            if self._pool_type in {"GSD"}:
+            if self._pool_type in {"GSD", "SFGSD"}:
                 self._pool_obj = qf.SQOpPool()
                 # o/v spaces are not well-defined: passing the dummy state self._ref[0]
                 if hasattr(self._sys, "orb_irreps_to_int"):

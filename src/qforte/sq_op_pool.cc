@@ -109,7 +109,41 @@ QubitOperator SQOpPool::get_qubit_operator(const std::string& order_type, bool c
 }
 
 void SQOpPool::fill_pool(std::string pool_type) {
-    if (pool_type == "GSD") {
+    if (pool_type == "SFGSD") {
+        //Pairs
+        std::vector<std::pair<size_t, size_t>> pairs;
+        for (size_t p = 0; p < n_spinorb_; p++) {
+            for (size_t q = p + 1; q < n_spinorb_; q++) {
+                pairs.push_back(std::make_pair(p,q));
+            }
+        }
+        
+        for (size_t pq = 0; pq < pairs.size(); pq++){
+            size_t p = pairs[pq].first;
+            size_t q = pairs[pq].second;
+            if (!find_irrep(orb_irreps_to_int_, std::vector<size_t>{p, q})) {
+                SQOperator temp_single;
+                temp_single.add_term(+1.0, {p}, {q});
+                temp_single.add_term(-1.0, {q}, {p});
+                temp_single.simplify();
+                if (temp_single.terms().size() > 0) {
+                    add_term(1.0, temp_single);
+                }
+            }
+            for (size_t rs = pq + 1; rs < pairs.size(); rs++){
+                size_t r = pairs[rs].first;
+                size_t s = pairs[rs].second;
+                if (!find_irrep(orb_irreps_to_int_, std::vector<size_t>{p, q, r, s})) {
+                    SQOperator temp_double;
+                    temp_double.add_term(+1.0, {p, q}, {r, s});
+                    temp_double.add_term(-1.0, {s, r}, {p, q});
+                    if (temp_double.terms().size() > 0) {
+                        add_term(1.0, temp_double);
+                    }
+                }
+            }
+        }
+    } else if (pool_type == "GSD") {
         size_t norb = n_spinorb_ / 2;
         for (size_t i = 0; i < norb; i++) {
             size_t ia = 2 * i;
