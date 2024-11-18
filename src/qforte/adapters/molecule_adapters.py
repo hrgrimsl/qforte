@@ -194,7 +194,7 @@ def create_psi_mol(**kwargs):
                 orbitals.append([orbital, irrep])
     orbitals.sort()
 
-    if kwargs["casscf"] != None:
+    if kwargs["casscf"] != None and kwargs["num_frozen_docc"] == kwargs["num_frozen_uocc"] == 0:
         occ_alpha_per_irrep = vanilla_wfn.occupation_a().nph
         occ_beta_per_irrep = vanilla_wfn.occupation_b().nph
     else:
