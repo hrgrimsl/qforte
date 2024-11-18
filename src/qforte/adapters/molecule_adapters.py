@@ -109,9 +109,9 @@ def create_psi_mol(**kwargs):
     if kwargs["scf_docc"] != None:
         psi4.set_options({"docc": kwargs["scf_docc"]})
 
-    if kwargs["num_frozen_docc"] != 0 and kwargs["casscf"] != None:
-        print("CASSCF not tested with completely frozen (unmixed) orbitals")
-        exit()
+    #if kwargs["num_frozen_docc"] != 0 and kwargs["casscf"] != None:
+    #    print("CASSCF not tested with completely frozen (unmixed) orbitals")
+    #    exit()
 
     if kwargs["num_frozen_uocc"] != 0 and kwargs["casscf"] != None:
         print("CASSCF not tested with completely frozen (unmixed) orbitals")
