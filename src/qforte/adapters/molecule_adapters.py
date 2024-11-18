@@ -121,7 +121,8 @@ def create_psi_mol(**kwargs):
 
     if kwargs["casscf"] != None:
         p4_Escf, vanilla_wfn = psi4.energy("SCF", return_wfn=True)
-        qforte_mol.fci_energy = psi4.energy("FCI")
+        if kwargs["run_fci"]:
+            qforte_mol.fci_energy = psi4.energy("FCI")
         psi4.set_options({"restricted_docc": kwargs["casscf"][0]})
         psi4.set_options({"active": kwargs["casscf"][1]})
         psi4.set_options({"diag_method": "rsp"})
