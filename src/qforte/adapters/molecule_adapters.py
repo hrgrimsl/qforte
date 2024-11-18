@@ -109,13 +109,13 @@ def create_psi_mol(**kwargs):
     if kwargs["scf_docc"] != None:
         psi4.set_options({"docc": kwargs["scf_docc"]})
 
-    #if kwargs["num_frozen_docc"] != 0 and kwargs["casscf"] != None:
-    #    print("CASSCF not tested with completely frozen (unmixed) orbitals")
-    #    exit()
+    if kwargs["num_frozen_docc"] != 0 and kwargs["casscf"] != None:
+        print("CASSCF not tested with completely frozen (unmixed) orbitals")
+        exit()
 
-    #if kwargs["num_frozen_uocc"] != 0 and kwargs["casscf"] != None:
-    #    print("CASSCF not tested with completely frozen (unmixed) orbitals")
-    #    exit()
+    if kwargs["num_frozen_uocc"] != 0 and kwargs["casscf"] != None:
+        print("CASSCF not tested with completely frozen (unmixed) orbitals")
+        exit()
 
     # run psi4 caclulation
 
@@ -201,7 +201,7 @@ def create_psi_mol(**kwargs):
         occ_alpha_per_irrep = p4_wfn.occupation_a().nph
         occ_beta_per_irrep = p4_wfn.occupation_b().nph
 
-    if kwargs["casscf"] != None and kwargs["num_frozen_docc"] == kwargs["num_frozen_uocc"] == 0:
+    if kwargs["casscf"] != None:
         count_per_irrep = list(vanilla_wfn.frzcpi().to_tuple())
     else:
         count_per_irrep = list(p4_wfn.frzcpi().to_tuple())
