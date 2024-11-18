@@ -113,9 +113,9 @@ def create_psi_mol(**kwargs):
     #    print("CASSCF not tested with completely frozen (unmixed) orbitals")
     #    exit()
 
-    if kwargs["num_frozen_uocc"] != 0 and kwargs["casscf"] != None:
-        print("CASSCF not tested with completely frozen (unmixed) orbitals")
-        exit()
+    #if kwargs["num_frozen_uocc"] != 0 and kwargs["casscf"] != None:
+    #    print("CASSCF not tested with completely frozen (unmixed) orbitals")
+    #    exit()
 
     # run psi4 caclulation
 
