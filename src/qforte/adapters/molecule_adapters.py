@@ -135,7 +135,7 @@ def create_psi_mol(**kwargs):
         print(f"CASSCF Energy: {E_casscf}")
     else:
         p4_Escf, p4_wfn = psi4.energy("SCF", return_wfn=True)
-
+    psi4.cubeprop(p4_wfn)
     # Run additional computations requested by the user
     if kwargs["run_mp2"]:
         qforte_mol.mp2_energy = psi4.energy("MP2")
