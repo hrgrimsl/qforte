@@ -15,7 +15,18 @@ kb = 3.1668115634564068e-06
 
 
 class Gibbs_ADAPT(UCCVQE):
-    def run(self, ref=None, pool_type="GSD", max_depth=10, T=0, opt_thresh=1e-16, C = None, p = None, tamps = [], tops = []):
+    def run(
+        self,
+        ref=None,
+        pool_type="GSD",
+        max_depth=10,
+        T=0,
+        opt_thresh=1e-16,
+        C=None,
+        p=None,
+        tamps=[],
+        tops=[],
+    ):
         self.opt_thresh = opt_thresh
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
@@ -38,7 +49,7 @@ class Gibbs_ADAPT(UCCVQE):
         print("PEPSI-ADAPT-VQE\n")
         print("*" * 30)
         self._adapt_iter = len(self._tamps)
-        
+
         while len(self._tops) < max_depth:
             print("\n")
             print("*" * 32)
@@ -137,7 +148,6 @@ class Gibbs_ADAPT(UCCVQE):
             
         print(f"Maximum DIIS Iterations Exceeded")
         """
-        
 
     def Gibbs_VQE(self, x):
         macro_iter = 0
@@ -165,10 +175,10 @@ class Gibbs_ADAPT(UCCVQE):
             if abs(self.F - prev_res) < 1e-12:
                 return res.x
             else:
-                print(self.F - prev_res, flush = True)
+                print(self.F - prev_res, flush=True)
             prev_res = self.F
 
-    def F_callback(self, x): 
+    def F_callback(self, x):
         print(
             f"{self.vqe_iter:>6}          {self.compute_F(x):+20.16f}        {self.dF_norm:+20.16f}"
         )

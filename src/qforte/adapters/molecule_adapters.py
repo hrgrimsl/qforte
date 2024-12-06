@@ -103,7 +103,7 @@ def create_psi_mol(**kwargs):
             "num_frozen_docc": kwargs["num_frozen_docc"],
             "num_frozen_uocc": kwargs["num_frozen_uocc"],
             "mp2_type": "conv",
-            "cubeprop_tasks": ['orbitals']
+            "cubeprop_tasks": ["orbitals"],
         }
     )
 
