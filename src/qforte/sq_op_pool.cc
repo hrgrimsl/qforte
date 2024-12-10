@@ -112,7 +112,7 @@ void SQOpPool::fill_pool(std::string pool_type) {
     if (pool_type == "SFGSD") {
 
         // Pairs
-
+        std::vector<std::pair<size_t, size_t>> pairs;
         for (size_t pq = 0; pq < pairs.size(); pq++) {
             size_t p = pairs[pq].first;
             size_t q = pairs[pq].second;
