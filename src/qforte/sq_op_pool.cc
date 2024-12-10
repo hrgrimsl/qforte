@@ -110,13 +110,8 @@ QubitOperator SQOpPool::get_qubit_operator(const std::string& order_type, bool c
 
 void SQOpPool::fill_pool(std::string pool_type) {
     if (pool_type == "SFGSD") {
+
         // Pairs
-        std::vector<std::pair<size_t, size_t>> pairs;
-        for (size_t p = 0; p < n_spinorb_; p++) {
-            for (size_t q = p + 1; q < n_spinorb_; q++) {
-                pairs.push_back(std::make_pair(p, q));
-            }
-        }
 
         for (size_t pq = 0; pq < pairs.size(); pq++) {
             size_t p = pairs[pq].first;
@@ -151,9 +146,7 @@ void SQOpPool::fill_pool(std::string pool_type) {
             for (size_t a = i; a < norb; a++) {
                 size_t aa = 2 * a;
                 size_t ab = 2 * a + 1;
-
                 if (!find_irrep(orb_irreps_to_int_, std::vector<size_t>{ia, aa})) {
-
                     if (aa != ia) {
                         SQOperator temp1a;
                         temp1a.add_term(+1.0, {aa}, {ia});
@@ -163,7 +156,6 @@ void SQOpPool::fill_pool(std::string pool_type) {
                             add_term(1.0, temp1a);
                         }
                     }
-
                     if (ab != ib) {
                         SQOperator temp1b;
                         temp1b.add_term(+1.0, {ab}, {ib});
