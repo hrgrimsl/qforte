@@ -21,7 +21,6 @@ class Gibbs_ADAPT(UCCVQE):
         pool_type="GSD",
         max_depth=10,
         T=0,
-        hot_T=1e6,
         hot_schedule = [],
         opt_thresh=1e-16,
         C=None,
@@ -37,7 +36,6 @@ class Gibbs_ADAPT(UCCVQE):
         self.fill_pool()
         self._ref = ref
         self.T = T
-        self.hot_T = hot_T
         self.hot_schedule = hot_schedule
         self.C = C
         self.p = p
@@ -61,11 +59,15 @@ class Gibbs_ADAPT(UCCVQE):
             print("\n")
             true_T = self.T
             true_beta = self.beta
+            
+            
             if self._adapt_iter in self.hot_schedule:
-                self.T = self.hot_T
-                self.beta = 1/(kb*self.T)             
+                print(f"Running iteration {self._adapt_iter} at T = ∞")
+                self.T = "Inf"
+                self.beta = 0
             self.dm_update()
             self.report_dm()
+
             print(f"\nCI Coefficients at {self._adapt_iter} iterations:\n")
             for i in range(self.C.shape[0]):
                 print(*list(self.C[i, :]))
