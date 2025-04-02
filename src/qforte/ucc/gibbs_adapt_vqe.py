@@ -49,6 +49,16 @@ class Gibbs_ADAPT(UCCVQE):
         print("PEPSI-ADAPT-VQE\n")
         print("*" * 30)
         self._adapt_iter = len(self._tamps)
+        print(f"\nOperators at {self._adapt_iter} iterations:", *self._tops)
+        print(
+            f"\nAmplitudes at {self._adapt_iter} iterations:",
+            *list(self._tamps),
+        )
+        self.dm_update()
+        self.report_dm()
+        print(f"\nCI Coefficients at {self._adapt_iter} iterations:\n")
+        for i in range(self.C.shape[0]):
+            print(*list(self.C[i, :]))
 
         while len(self._tops) < max_depth:
             print("\n")
