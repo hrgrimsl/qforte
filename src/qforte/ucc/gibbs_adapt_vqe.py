@@ -58,7 +58,9 @@ class Gibbs_ADAPT(UCCVQE):
             print("\n")
             self.dm_update()
             self.report_dm()
-
+            print(f"\nCI Coefficients at {self._adapt_iter} iterations:\n")
+            for i in range(self.C.shape[0]):
+                print(*list(self.C[i, :]))
             self._adapt_iter += 1
             op_grads = self.compute_dF3()
             idx = np.argsort(abs(op_grads))
