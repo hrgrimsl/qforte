@@ -35,7 +35,7 @@ class TestPEPSIADAPTVQE:
         refs = []
         for i in ref_dets:
             qc = qf.Computer(12)
-            v1 = np.zeros(pow(2, 12), dtype=np.complex_)
+            v1 = np.zeros(pow(2, 12), dtype=np.complex128)
             v1[i] = 1
             qc.set_coeff_vec(v1)
             refs.append(qc)
@@ -52,7 +52,7 @@ class TestPEPSIADAPTVQE:
 
         alg.dm_update()
 
-        h = 1.5e-8
+        h = 1e-6
 
         F = alg.compute_F(alg._tamps)
         dF_numerical = scipy.optimize.approx_fprime(
@@ -64,7 +64,6 @@ class TestPEPSIADAPTVQE:
         assert U == approx(-98.58884089990063, abs = 1e-10)
         assert S == approx(0.039076852094959605, abs = 1e-10)
         assert F == approx(-98.59131588044217, abs = 1e-10)
-
         assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs = 1e-5)
 
 if __name__ == "__main__":

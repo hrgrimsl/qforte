@@ -21,6 +21,8 @@ class Gibbs_ADAPT(UCCVQE):
         pool_type="GSD",
         max_depth=10,
         T=0,
+        hot_T=1e6,
+        hot_schedule = [],
         opt_thresh=1e-16,
         C=None,
         p=None,
@@ -35,7 +37,8 @@ class Gibbs_ADAPT(UCCVQE):
         self.fill_pool()
         self._ref = ref
         self.T = T
-
+        self.hot_T = hot_T
+        self.hot_schedule = hot_schedule
         self.C = C
         self.p = p
         self._tops = tops
@@ -56,6 +59,11 @@ class Gibbs_ADAPT(UCCVQE):
             print("\n", flush=True)
             print(f"ADAPT Iteration {self._adapt_iter}")
             print("\n")
+            true_T = self.T
+            true_beta = self.beta
+            if self._adapt_iter in self.hot_schedule:
+                self.T = self.hot_T
+                self.beta = 1/(kb*self.T)             
             self.dm_update()
             self.report_dm()
             print(f"\nCI Coefficients at {self._adapt_iter} iterations:\n")
@@ -66,7 +74,7 @@ class Gibbs_ADAPT(UCCVQE):
             idx = np.argsort(abs(op_grads))
             print("\n")
 
-            if len(self._tops) != 0 and self._tops[-1] == idx[-1]:
+            if len(self._tops) != 0 and self._tops[-1] == idx[-1] and (self._adapt_iter-1) not in hot_schedule:
                 print(f"PEPSI-ADAPT-VQE is stuck on the same operator.  Aborting.")
                 break
             else:
@@ -77,6 +85,8 @@ class Gibbs_ADAPT(UCCVQE):
                 self._tops.append(idx[-1])
                 self._tamps = np.array(list(self._tamps) + [0.0])
                 self._tamps = self.Gibbs_VQE(self._tamps)
+                self.beta = true_beta
+                self.T = true_T
                 print(f"\nOperators at {self._adapt_iter} iterations:", *self._tops)
                 print(
                     f"\nAmplitudes at {self._adapt_iter} iterations:",
@@ -94,67 +104,9 @@ class Gibbs_ADAPT(UCCVQE):
                 print("\n")
         return self.U, self.S, self.F
 
-    """
-    def Gibbs_VQE_diis(self, x, max_iter = 1000, gtol = 1e-8):
-        max_diis_space = len(x)
-        diis_start = len(x)
-        print("Performing DIIS to optimize parameters.")
-        print("Iter.    U       S       F       gnorm")
-        #Trial vectors
-        vecs = [x]
-        #Gradients after optimizing C and ensemble weights
-        grads = []
-        for i in range(diis_start - 1):
-            self._tamps = vecs[-1]
-            self.dm_update() 
-            grads.append(self.compute_dF(vecs[-1]))
-            print(f"{i}     {self.U:+20.16f}     {self.S:+20.16f}     {self.F:+20.16f}      {np.linalg.norm(grads[-1]):20.16f}")
-            if len(grads) < 2:
-                vecs.append(vecs[-1] - grads[-1])
-            else:
-                hinv_approx = np.divide(vecs[-1] - vecs[-2], grads[-1] - grads[-2], 
-                                        out = np.zeros_like(vecs[-1] - vecs[-2]), where=grads[-1] - grads[-2] != 0)
-                vecs.append(vecs[-1] - np.multiply(hinv_approx, grads[-1]))
-        for i in range(0, max_iter-diis_start-1):
-            if len(vecs) > max_diis_space:
-                vecs = vecs[-max_diis_space:]
-                grads = grads[-max_diis_space+1:]
-                
-            self._tamps = vecs[-1]
-            self.dm_update()
-            
-            grads.append(self.compute_dF(vecs[-1]))
-            print(f"{i + diis_start - 1}     {self.U:+20.16f}     {self.S:+20.16f}     {self.F:+20.16f}      {np.linalg.norm(grads[-1]):20.16f}")
-            if np.linalg.norm(grads[-1]) < gtol:
-                return vecs[-1]
-            B_mat = np.zeros((len(grads)+1, len(grads)+1))
-            for j, gj in enumerate(grads):
-                B_mat[-1,j] = B_mat[j,-1] = 1
-                for k, gk in enumerate(grads):
-                    B_mat[j,k] = gj.T@gk
-            B_mat[-1,-1] = 0
-            rvec = np.zeros(B_mat.shape[0])
-            rvec[-1] = 1
-            c = np.linalg.pinv(B_mat)@rvec
-            
-            new_vec = np.zeros(len(x))
-            for j in range(len(c) - 1):
-                new_vec += c[j]*vecs[j]
-
-            
-            vecs.append(new_vec)
-            
-
-            
-            
-            
-        print(f"Maximum DIIS Iterations Exceeded")
-        """
-
     def Gibbs_VQE(self, x):
         macro_iter = 0
         prev_res = self.compute_F(x)
-        self.dm_update()
         while True:
             macro_iter += 1
             self.vqe_iter = 0
@@ -168,16 +120,16 @@ class Gibbs_ADAPT(UCCVQE):
                 jac=self.compute_dF,
                 callback=self.F_callback,
                 method="bfgs",
-                options={"gtol": self.opt_thresh, "disp": True, "maxiter": 20},
+                options={"gtol": self.opt_thresh, "disp": True},
             )
             x = res.x
             self._tamps = res.x
             self.dm_update()
 
-            if abs(self.F - prev_res) < 1e-12:
+            if abs(self.F - prev_res) < 1e-16:
                 return res.x
             else:
-                print(self.F - prev_res, flush=True)
+                print(f"delta_F = {self.F - prev_res}", flush=True)
             prev_res = self.F
 
     def F_callback(self, x):
