@@ -226,7 +226,7 @@ def sa_cis(ref, sz=[0], mult=[1, 3], irreps=None, target_irrep=None):
             sc[2 * j + 1] = det[2 * j]
             sc[2 * j] = det[2 * j + 1]
         if sc == det:
-            Us.append(build_refprep(det, "occupation_list"))
+            Us.append(build_refprep(det))
         else:
             diff = [det[i] - ref[i] for i in range(len(det))]
             inds = [int(diff.index(-1) / 2), int(diff.index(1) / 2)]
