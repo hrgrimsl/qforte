@@ -195,7 +195,10 @@ class Gibbs_ADAPT(UCCVQE):
             self.U = self.w.T @ self.p
             plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
             self.S = -sum(plogp)
-            self.F = self.U - (1 / self.beta) * self.S
+            if self.T != "Inf":    
+                self.F = self.U - (1 / self.beta) * self.S
+            else:
+                self.F = self.U
 
     def compute_F(self, x):
         if self._state_prep_type == "computer":
@@ -213,7 +216,10 @@ class Gibbs_ADAPT(UCCVQE):
             kets = np.array(kets).real
             H_eff = sigma @ kets.T
             w = np.diag(self.C.T @ H_eff @ self.C)
-            F = w @ self.p - (1 / self.beta) * self.S
+            if self.T != "Inf":
+                F = w @ self.p - (1 / self.beta) * self.S
+            else:
+                F = w @ self.p
         return F
 
     def compute_spins(self, x):
