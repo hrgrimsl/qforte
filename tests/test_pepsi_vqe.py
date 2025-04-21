@@ -48,7 +48,7 @@ class TestPEPSIADAPTVQE:
             reference=refs,
         )
 
-        U, S, F = alg.run(ref=refs, pool_type="GSD", T=20000, max_depth=2)
+        U, S, F = alg.run(pool_type="GSD", T=20000, max_depth=2)
 
         alg.dm_update()
 

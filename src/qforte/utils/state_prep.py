@@ -12,6 +12,8 @@ def build_refprep(ref):
 
 
 def ref_string(ref, nqb):
+    if isinstance(ref, qforte.Computer):
+        return("qf.Computer object")
     temp = ref.copy()
     temp.reverse()
     ref_basis_idx = int("".join(str(x) for x in temp), 2)
