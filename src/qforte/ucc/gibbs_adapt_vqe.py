@@ -35,7 +35,7 @@ class Gibbs_ADAPT(UCCVQE):
         T, float: temperature in K
         max_depth, int: Maximum number of operators to use in ansatz
         opt_thresh, float: gtol in bfgs
-        reload_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from.
+        restart_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from.
         verbose, bool: Print more detailed output than necessary?
         """
         
