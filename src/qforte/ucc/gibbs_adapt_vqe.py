@@ -30,6 +30,7 @@ class Gibbs_ADAPT(UCCVQE):
         opt_thresh, float: gtol in bfgs
         reload_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from.
         """
+        
         self.opt_thresh = opt_thresh
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
@@ -44,11 +45,15 @@ class Gibbs_ADAPT(UCCVQE):
         print("*" * 100)
         print("HOT-ADAPT-VQE".center(100))
         print("Code by H.R. Grimsley".center(100))
-        os.system("git rev-parse HEAD")
-        print("")
         print("*" * 100)
-        exit()
+        
         self._adapt_iter = len(self._tamps)
+
+        if reload_file == True:
+            return NotImplementedError()
+        else:
+            self.dm_update()
+            self.report_dm()
 
         while len(self._tops) < max_depth:
             
@@ -149,6 +154,7 @@ class Gibbs_ADAPT(UCCVQE):
             kets = []
             # Diagonalize effective H in subspace
             U = self.build_Uvqc()
+            
             for i, det in enumerate(self._ref):
                 sigma = qf.Computer(self._nqb)
                 sigma.set_coeff_vec(det.get_coeff_vec())
@@ -160,11 +166,8 @@ class Gibbs_ADAPT(UCCVQE):
             kets = np.array(kets).real
             H_eff = sigma @ kets.T
             self.w, self.C = np.linalg.eigh(H_eff)
-
             # Compute Boltzmann probabilities
-            if self.T == "Inf":
-                q = np.ones(len(self.w)) / len(self.w)
-            elif self.T == 0:
+            if self.T == 0:
                 q = np.zeros(len(self.w))
                 q[0] = 1
             else:
@@ -174,10 +177,8 @@ class Gibbs_ADAPT(UCCVQE):
             self.U = self.w.T @ self.p
             plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
             self.S = -sum(plogp)
-            if self.T != "Inf":    
-                self.F = self.U - (1 / self.beta) * self.S
-            else:
-                self.F = self.U
+            self.F = self.U - (1 / self.beta) * self.S
+            
 
     def compute_F(self, x):
         if self._state_prep_type == "computer":

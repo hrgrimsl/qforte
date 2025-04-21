@@ -140,10 +140,11 @@ class Algorithm(ABC):
         else:
             try:
                 assert weights != None
+                self._weights = weights
             except:
-                print("Weights need to be specified for a multi-state calculation.")
-            self._weights = weights
-
+                print("Assuming equal weights.")
+                self._weights = [1/len(reference)] * len(reference)
+            
             if self._state_prep_type == "occupation_list":
                 if reference == None:
                     self._ref = [system.hf_reference]
@@ -189,10 +190,11 @@ class Algorithm(ABC):
                     self._refprep.append(build_refprep(self._ref[i]))
                     self._Uprep.append(ref)
 
-            elif self._state_prep_type == "computer":
-                self._ref = [system.hf_reference] * len(self._weights)
+            elif self._state_prep_type == "computer": 
+                #self._ref = [system.hf_reference] * len(self._weights)
+                self._ref = reference
                 self._refprep = []
-                self._Uprep = [qf.Circuit()] * len(weights)
+                self._Uprep = [qf.Circuit()] * len(self._weights)
                 self.computer = reference
                 if not isinstance(reference, list):
                     raise ValueError("reference should be a list of Computer objects.")
@@ -201,11 +203,11 @@ class Algorithm(ABC):
                         raise ValueError(
                             "reference should be a list of Computer objects."
                         )
-                    if ref.get_nqubit() != len(system.hf_reference):
-                        raise ValueError(
-                            f"Computer needs {len(system.hf_reference)} qubits, found {ref.get_nqubit()}."
-                        )
-                    self._refprep.append(build_refprep(system.hf_reference))
+                    #if ref.get_nqubit() != len(system.hf_reference):
+                    #    raise ValueError(
+                    #        f"Computer needs {len(system.hf_reference)} qubits, found {ref.get_nqubit()}."
+                    #    )
+                    #self._refprep.append(build_refprep(system.hf_reference))
             if not fast:
                 raise ValueError(
                     "`self._fast = False` specifies not to skip steps, but `self._state_prep_type = computer` specifies to skip state initialization. That's inconsistent."
@@ -221,7 +223,10 @@ class Algorithm(ABC):
             if abs(sum(self._weights) - 1) > 1e-12:
                 raise ValueError("Reference weights should sum to 1.")
 
-            self._nqb = len(self._ref[0])
+            if self._state_prep_type == "computer": 
+                self._nqb = self._ref[0].get_nqubit()
+            else:
+                self._nqb = len(self._ref[0])
 
         self._qb_ham = system.hamiltonian
         if self._qb_ham.num_qubits() != self._nqb:
@@ -429,14 +434,13 @@ class AnsatzAlgorithm(Algorithm):
         else:
             # Only GSD is well-defined for multiple references.
             if self._pool_type in {"GSD", "SFGSD"}:
+                # o/v spaces are not well-defined: passing dummy state
+                dummy = [0] * self._nqb
                 self._pool_obj = qf.SQOpPool()
-                # o/v spaces are not well-defined: passing the dummy state self._ref[0]
-                if hasattr(self._sys, "orb_irreps_to_int"):
-                    self._pool_obj.set_orb_spaces(
-                        self._ref[0], self._sys.orb_irreps_to_int
-                    )
+                if hasattr(self._sys, "orb_irreps_to_int"):    
+                    self._pool_obj.set_orb_spaces(dummy, self._sys.orb_irreps_to_int)
                 else:
-                    self._pool_obj.set_orb_spaces(self._ref[0])
+                    self._pool_obj.set_orb_spaces(dummy)
                 self._pool_obj.fill_pool(self._pool_type)
 
             else:
