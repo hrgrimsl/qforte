@@ -9,86 +9,75 @@ from qforte.abc.uccvqeabc import UCCVQE
 
 import numpy as np
 import scipy
-import pprint
+import os
 
 kb = 3.1668115634564068e-06
 
 
 class Gibbs_ADAPT(UCCVQE):
     def run(
-        self,
-        ref=None,
+        self,  
         pool_type="GSD",
-        max_depth=10,
         T=0,
-        hot_schedule = [],
+        max_depth=10,
         opt_thresh=1e-16,
-        C=None,
-        p=None,
-        tamps=[],
-        tops=[],
+        reload_file = False
     ):
+        """
+        pool_type, string: operators in pool
+        T, float: temperature in K
+        max_depth, int: Maximum number of operators to use in ansatz
+        opt_thresh, float: gtol in bfgs
+        reload_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from.
+        """
         self.opt_thresh = opt_thresh
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
         self._pool_type = pool_type
         self._compact_excitations = True
         self.fill_pool()
-        self._ref = ref
-        self.T = T
-        self.hot_schedule = hot_schedule
-        self.C = C
-        self.p = p
-        self._tops = tops
-        self._tamps = tamps
 
-        if self.T != 0 and self.T != "Inf":
+        self.T = T 
+        if self.T != 0:
             self.beta = 1 / (kb * self.T)
-        if self.T == "Inf":
-            self.beta = 0
-        print("*" * 30)
-        print("PEPSI-ADAPT-VQE\n")
-        print("*" * 30)
+        
+        print("*" * 100)
+        print("HOT-ADAPT-VQE".center(100))
+        print("Code by H.R. Grimsley".center(100))
+        os.system("git rev-parse HEAD")
+        print("")
+        print("*" * 100)
+        exit()
         self._adapt_iter = len(self._tamps)
 
         while len(self._tops) < max_depth:
-            print("\n")
-            print("*" * 32)
-            print("\n", flush=True)
+            
             print(f"ADAPT Iteration {self._adapt_iter}")
             print("\n")
-            true_T = self.T
-            true_beta = self.beta
-            
-            
-            if self._adapt_iter in self.hot_schedule:
-                print(f"Running iteration {self._adapt_iter} at T = ∞")
-                self.T = "Inf"
-                self.beta = 0
-            self.dm_update()
-            self.report_dm()
 
             print(f"\nCI Coefficients at {self._adapt_iter} iterations:\n")
             for i in range(self.C.shape[0]):
                 print(*list(self.C[i, :]))
+            
             self._adapt_iter += 1
             op_grads = self.compute_dF3()
             idx = np.argsort(abs(op_grads))
             print("\n")
+            print(f"Operator Addition Gradients:")
+            print(f"Norm of Gradients: {np.linalg.norm(op_grads)}")
+            print(f"Operator {idx[-1]} has max gradient {op_grads[idx[-1]]}")
+            print(f"({self._pool_obj[idx[-1]][1]})")
 
-            if len(self._tops) != 0 and self._tops[-1] == idx[-1] and (self._adapt_iter-1) not in hot_schedule:
-                print(f"PEPSI-ADAPT-VQE is stuck on the same operator.  Aborting.")
-                break
-            else:
-                print(f"Operator Addition Gradients:")
-                print(f"Norm of Gradients: {np.linalg.norm(op_grads)}")
-                print(f"Adding operator {idx[-1]} with gradient {op_grads[idx[-1]]}")
-                print(self._pool_obj[idx[-1]][1])
+            if len(self._tops) != 0 and self._tops[-1] == idx[-1]:
+                print(f"""PEPSI-ADAPT-VQE is stuck on the same operator.
+                      Aborting instead of adding re-adding it.
+                      No re-optimization will take place.""")
+                return self.U, self.S, self.F
+            else: 
                 self._tops.append(idx[-1])
                 self._tamps = np.array(list(self._tamps) + [0.0])
                 self._tamps = self.Gibbs_VQE(self._tamps)
-                self.beta = true_beta
-                self.T = true_T
+                
                 print(f"\nOperators at {self._adapt_iter} iterations:", *self._tops)
                 print(
                     f"\nAmplitudes at {self._adapt_iter} iterations:",
