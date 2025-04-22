@@ -58,7 +58,7 @@ class Gibbs_ADAPT(UCCVQE):
         print("HOT-ADAPT-VQE".center(100))
         print("Code by H.R. Grimsley".center(100))
         print("*" * 100)
-        print("\n")
+        print("\n", flush = True)
         
         self._summary_string = "Summmary of HOT-ADAPT-VQE Iterations:\n"
         self._summary_string+="-"*100
@@ -78,7 +78,7 @@ class Gibbs_ADAPT(UCCVQE):
             
             self._summary_string += f"\n{len(self._tamps):8d} {self.U:+20.16f} {self.S:+20.16f} {self.F:+20.16f} {op_grads[idx[-1]]:+20.16f}"
             print(self._summary_string)
-            print("-"*100)
+            print("-"*100, flush = True)
 
             if self.verbose == True:
                 self.report_dm()
