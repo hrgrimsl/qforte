@@ -59,7 +59,7 @@ class Gibbs_ADAPT(UCCVQE):
         print("*" * 100)
         print("\n", flush = True)
         
-        self._summary_string = "Summmary of HOT-ADAPT-VQE Iterations:\n"
+        self._summary_string = "Summary of HOT-ADAPT-VQE Iterations:\n"
         self._summary_string+="-"*100
         self._summary_string += f"\n{'Iter.':>8} {'U':>20} {'S':>20} {'F':>20} {'gmax':>20}"
         
@@ -130,10 +130,10 @@ class Gibbs_ADAPT(UCCVQE):
             )
             x = res.x
             self._tamps = res.x
-            print("Updating ensemble...")
+            print("Updating ensemble...", flush = True)
             self.dm_update()
             if abs(self.F - prev_res) < 1e-16:
-                print("HOT-VQE Done.")
+                print("HOT-VQE Done.", flush = True)
                 return res.x 
             prev_res = self.F
 
