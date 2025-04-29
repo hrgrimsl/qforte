@@ -21,6 +21,7 @@ jobs:
       with:
         auto-update-conda: true  # Ensure conda is updated to the latest version
         miniforge-variant: "Miniforge"
+        miniforge-version: 25.3.0-1
 
     - name: Create conda environment
       run: |
