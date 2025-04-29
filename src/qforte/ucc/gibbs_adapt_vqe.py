@@ -22,13 +22,13 @@ kb = 3.1668115634564068e-06
 
 class Gibbs_ADAPT(UCCVQE):
     def run(
-        self,  
+        self,
         pool_type="GSD",
         T=0,
         max_depth=10,
         opt_thresh=1e-16,
-        restart_file = False,
-        verbose = True
+        restart_file=False,
+        verbose=True,
     ):
         """
         pool_type, string: operators in pool
@@ -38,7 +38,7 @@ class Gibbs_ADAPT(UCCVQE):
         restart_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from.
         verbose, bool: Print more detailed output than necessary?
         """
-        
+
         self.opt_thresh = opt_thresh
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
@@ -48,67 +48,72 @@ class Gibbs_ADAPT(UCCVQE):
 
         self.fill_pool()
 
-        self.T = T 
+        self.T = T
         if self.T != 0:
             self.beta = 1 / (kb * self.T)
-        
+
         print("\n")
         print("*" * 100)
         print("HOT-ADAPT-VQE".center(100))
         print("Code by H.R. Grimsley".center(100))
         print("*" * 100)
-        print("\n", flush = True)
-        
+        print("\n", flush=True)
+
         self._summary_string = "Summary of HOT-ADAPT-VQE Iterations:\n"
-        self._summary_string+="-"*100
-        self._summary_string += f"\n{'Iter.':>8} {'U':>20} {'S':>20} {'F':>20} {'gmax':>20}"
-        
+        self._summary_string += "-" * 100
+        self._summary_string += (
+            f"\n{'Iter.':>8} {'U':>20} {'S':>20} {'F':>20} {'gmax':>20}"
+        )
 
         if restart_file != False:
             self.parse_existing_file(restart_file)
-            self.compute_F(self._tamps, assign = True)
-        else: 
+            self.compute_F(self._tamps, assign=True)
+        else:
             self.dm_update()
 
-        while len(self._tops) <= max_depth: 
+        while len(self._tops) <= max_depth:
             op_grads = self.compute_dF3()
             idx = np.argsort(abs(op_grads))
-            
+
             self._summary_string += f"\n{len(self._tamps):8d} {self.U:+20.16f} {self.S:+20.16f} {self.F:+20.16f} {op_grads[idx[-1]]:+20.16f}"
             print(self._summary_string)
-            print("-"*100, flush = True)
+            print("-" * 100, flush=True)
 
             if self.verbose == True:
                 self.report_dm()
                 print(f"Operator {idx[-1]} has max gradient {op_grads[idx[-1]]}:")
                 print(f"{self._pool_obj[idx[-1]][1]}\n")
-            
+
             if len(self._tops) == max_depth:
                 print("Maximum number of operators reached.")
                 return self.U, self.S, self.F
-            
+
             if len(self._tops) != 0 and self._tops[-1] == idx[-1]:
-                print(f"""PEPSI-ADAPT-VQE is stuck on the same operator.
+                print(
+                    f"""PEPSI-ADAPT-VQE is stuck on the same operator.
                       Aborting instead of adding re-adding it.
-                      No re-optimization will take place.""")
+                      No re-optimization will take place."""
+                )
                 return self.U, self.S, self.F
-            else: 
+            else:
                 self._tops.append(idx[-1])
                 self._tamps = np.array(list(self._tamps) + [0.0])
                 self._tamps = self.Gibbs_VQE(self._tamps)
 
-                if verbose == True: 
+                if verbose == True:
                     print(f"\nOperators at {len(self._tops)} iterations:", *self._tops)
-                    print(f"\nAmplitudes at {len(self._tops)} iterations:", *list(self._tamps))
-                
-                
+                    print(
+                        f"\nAmplitudes at {len(self._tops)} iterations:",
+                        *list(self._tamps),
+                    )
+
                 print(f"\nIteration {len(self._tops)} Ansatz:\n")
-                print("-"*50)
+                print("-" * 50)
                 for i in range(len(self._tops)):
                     print(
                         f"{self._tops[i]:<4}  {self._tamps[i]:+8.12f}  {self._pool_obj[self._tops[i]][1].terms()[1][2]} <--> {self._pool_obj[self._tops[i]][1].terms()[1][1]}"
                     )
-                print("-"*50)
+                print("-" * 50)
                 print("\n")
         return self.U, self.S, self.F
 
@@ -117,7 +122,7 @@ class Gibbs_ADAPT(UCCVQE):
         prev_res = self.compute_F(x)
         self.vqe_iter = 0
         print(f"HOT-VQE Iter.      Free Energy (Eh)     gnorm")
-        while True: 
+        while True:
             self.compute_dF(x)
             self.F_callback(x)
             res = scipy.optimize.minimize(
@@ -130,11 +135,11 @@ class Gibbs_ADAPT(UCCVQE):
             )
             x = res.x
             self._tamps = res.x
-            print("Updating ensemble...", flush = True)
+            print("Updating ensemble...", flush=True)
             self.dm_update()
             if abs(self.F - prev_res) < 1e-16:
-                print("HOT-VQE Done.", flush = True)
-                return res.x 
+                print("HOT-VQE Done.", flush=True)
+                return res.x
             prev_res = self.F
 
     def F_callback(self, x):
@@ -167,7 +172,7 @@ class Gibbs_ADAPT(UCCVQE):
             kets = []
             # Diagonalize effective H in subspace
             U = self.build_Uvqc()
-            
+
             for i, det in enumerate(self._ref):
                 sigma = qf.Computer(self._nqb)
                 sigma.set_coeff_vec(det.get_coeff_vec())
@@ -192,7 +197,7 @@ class Gibbs_ADAPT(UCCVQE):
             self.S = -sum(plogp)
             self.F = self.U - (1 / self.beta) * self.S
 
-    def compute_F(self, x, assign = False):
+    def compute_F(self, x, assign=False):
         if self._state_prep_type == "computer":
             sigmas = []
             kets = []
@@ -208,12 +213,12 @@ class Gibbs_ADAPT(UCCVQE):
             kets = np.array(kets).real
             H_eff = sigma @ kets.T
             w = np.diag(self.C.T @ H_eff @ self.C)
-            
+
             if assign:
-                self.U = w@self.p
+                self.U = w @ self.p
                 plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
                 self.S = -sum(plogp)
-                
+
             if self.T != "Inf":
                 F = w @ self.p - (1 / self.beta) * self.S
             else:
@@ -334,24 +339,23 @@ class Gibbs_ADAPT(UCCVQE):
         dF = np.einsum("i,iu->u", self.p, dF)
         self.dF_norm = np.linalg.norm(dF)
         return dF
-    
+
     def parse_existing_file(self, filename):
         with open(filename, "r") as f:
             lines = f.readlines()
-            for i in range(len(lines) -1, -1, -1):
+            for i in range(len(lines) - 1, -1, -1):
                 if lines[i].startswith("CI Coefficients"):
                     start_idx = i + 2
                     break
         first_line = lines[start_idx].strip().split()
         n = len(first_line)
-        block_lines = lines[start_idx:start_idx+n]
+        block_lines = lines[start_idx : start_idx + n]
         data = [list(map(float, line.strip().split())) for line in block_lines]
         self.C = np.array(data)
-        
-        
+
         with open(filename, "r") as f:
             lines = f.readlines()
-            for i in range(len(lines) -1, -1, -1):
+            for i in range(len(lines) - 1, -1, -1):
                 if lines[i].strip().startswith("ρ ="):
                     start_idx = i + 1
                     break
@@ -363,26 +367,24 @@ class Gibbs_ADAPT(UCCVQE):
             coeff = float(line.split()[0])
             coeffs.append(coeff)
         self.p = np.array(coeffs)
-        
+
         with open(filename, "r") as f:
             lines = f.readlines()
             for i in range(len(lines) - 1, -1, -1):
                 if lines[i].startswith("Amplitudes at"):
-                    self._tamps = np.array(list(map(float, lines[i].split(":")[1].strip().split())))
-                    break 
+                    self._tamps = np.array(
+                        list(map(float, lines[i].split(":")[1].strip().split()))
+                    )
+                    break
         with open(filename, "r") as f:
             lines = f.readlines()
             for i in range(len(lines) - 1, -1, -1):
                 if lines[i].startswith("Operators at"):
                     self._tops = list(map(int, lines[i].split(":")[1].strip().split()))
-                    break 
+                    break
 
         assert len(self._tops) == len(self._tamps)
         assert len(self.p) == self.C.shape[0] == self.C.shape[1] == len(self._ref)
-        
-
-
-
 
     def get_num_commut_measurements(self):
         pass

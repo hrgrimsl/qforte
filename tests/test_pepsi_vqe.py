@@ -61,10 +61,11 @@ class TestPEPSIADAPTVQE:
 
         dF_analytical = alg.compute_dF(alg._tamps)
 
-        assert U == approx(-98.58884089990063, abs = 1e-10)
-        assert S == approx(0.039076852094959605, abs = 1e-10)
-        assert F == approx(-98.59131588044217, abs = 1e-10)
-        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs = 1e-5)
+        assert U == approx(-98.58884089990063, abs=1e-10)
+        assert S == approx(0.039076852094959605, abs=1e-10)
+        assert F == approx(-98.59131588044217, abs=1e-10)
+        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs=1e-5)
+
 
 if __name__ == "__main__":
     test = TestPEPSIADAPTVQE()
