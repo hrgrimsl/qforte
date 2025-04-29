@@ -20,7 +20,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2
       with:
         auto-update-conda: true  # Ensure conda is updated to the latest version
-        miniforge-variant: "Miniforge"
+        miniforge-variant: "Miniforge3"
 
     - name: Create conda environment
       run: |
