@@ -20,6 +20,7 @@
 namespace py = pybind11;
 using namespace pybind11::literals;
 
+//LCOV_EXCL_START
 PYBIND11_MODULE(qforte, m) {
     py::class_<Circuit, std::shared_ptr<Circuit>>(m, "Circuit")
         .def(py::init<>())
@@ -348,3 +349,4 @@ PYBIND11_MODULE(qforte, m) {
            )pbdoc",
         py::arg("orb_irrep_to_int"), py::arg("spinorb_indices"));
 }
+//LCOV_EXCL_STOP
