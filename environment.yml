@@ -6,12 +6,12 @@ channels:
     - conda-forge
 
 dependencies:
-    - python==3.10
+    - python>=3.10
     - pip>=19.0
     - pybind11
     - yaml
     - pytest
-    - psi4=1.8.2
+    - psi4=1.9.1
     - pre-commit
     - clang-format
     - pip:
