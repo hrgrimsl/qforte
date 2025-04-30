@@ -11,7 +11,7 @@ dependencies:
     - pybind11
     - yaml
     - pytest
-    - psi4=1.8.2
+    - psi4=1.9.1
     - pre-commit
     - clang-format
     - pip:
