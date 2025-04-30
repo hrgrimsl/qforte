@@ -126,6 +126,7 @@ class Gibbs_ADAPT(UCCVQE):
         while True:
             self.compute_dF(x)
             self.F_callback(x)
+            prev_res = self.F
             res = scipy.optimize.minimize(
                 self.compute_F,
                 x,
@@ -141,7 +142,7 @@ class Gibbs_ADAPT(UCCVQE):
             if abs(self.F - prev_res) < 1e-16:
                 print("HOT-VQE Done.", flush=True)
                 return res.x
-            prev_res = self.F
+            
 
     def F_callback(self, x):
         print(
@@ -200,7 +201,7 @@ class Gibbs_ADAPT(UCCVQE):
 
     def compute_F(self, x, assign=False):
         if self.freeze_pC == False:
-            assign = True
+            self._tamps = x
             self.dm_update()
         if self._state_prep_type == "computer":
             sigmas = []
@@ -298,6 +299,7 @@ class Gibbs_ADAPT(UCCVQE):
 
     def compute_dF(self, x):
         if self.freeze_pC == False:
+            self._tamps = x
             self.dm_update()
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
         alphas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
