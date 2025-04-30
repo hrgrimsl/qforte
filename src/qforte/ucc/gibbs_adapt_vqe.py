@@ -139,7 +139,7 @@ class Gibbs_ADAPT(UCCVQE):
             self._tamps = res.x
             print("Updating ensemble...", flush=True)
             self.dm_update()
-            if abs(self.F - prev_res) < 1e-16:
+            if abs(self.F - prev_res) < 1e-16 or self.freeze_pC == False:
                 print("HOT-VQE Done.", flush=True)
                 return res.x
             
