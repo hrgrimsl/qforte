@@ -29,6 +29,7 @@ class Gibbs_ADAPT(UCCVQE):
         opt_thresh=1e-16,
         restart_file=False,
         verbose=True,
+        freeze_pC = True
     ):
         """
         pool_type, string: operators in pool
@@ -45,7 +46,7 @@ class Gibbs_ADAPT(UCCVQE):
         self._pool_type = pool_type
         self._compact_excitations = True
         self.verbose = verbose
-
+        self.freeze_pC = freeze_pC
         self.fill_pool()
 
         self.T = T
@@ -198,6 +199,8 @@ class Gibbs_ADAPT(UCCVQE):
             self.F = self.U - (1 / self.beta) * self.S
 
     def compute_F(self, x, assign=False):
+        if self.freeze_pC == False:
+            self.dm_update()
         if self._state_prep_type == "computer":
             sigmas = []
             kets = []
@@ -254,6 +257,8 @@ class Gibbs_ADAPT(UCCVQE):
         return np.diag(Sz_eff), np.diag(S2_eff)
 
     def compute_dF3(self):
+        if self.freeze_pC == False:
+            self.dm_update()
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
 
         alphas = np.zeros((len(self._ref), len(self._pool_obj), pow(2, self._nqb)))
@@ -291,6 +296,8 @@ class Gibbs_ADAPT(UCCVQE):
         return dF
 
     def compute_dF(self, x):
+        if self.freeze_pC == False:
+            self.dm_update()
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
         alphas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
         sigmas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))

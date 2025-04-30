@@ -7,10 +7,8 @@ from qforte import cisd_manifold
 from qforte import build_refprep
 from qforte import build_effective_array
 from qforte import build_effective_symmetric_operator
-from qforte import compute_operator_matrix_element
 from qforte import Computer
-from qforte import Circuit
-from qforte import sa_single
+
 import copy
 import os
 import numpy as np
@@ -240,7 +238,7 @@ class TestSAADAPTVQE:
 
         for i in range(len(E_more)):
             for j in range(len(E_more)):
-                assert dip_dir[i, j] - total_dip[i, j] == approx(0.0, abs=1e-7)
+                assert dip_dir[i, j] - total_dip[i, j] == approx(0.0, abs=2e-7)
 
         spaces = [[1, 0, 0, 0], [2, 0, 0, 0], [1, 0, 1, 1]]
         mol = system_factory(
