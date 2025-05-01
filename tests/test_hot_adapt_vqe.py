@@ -2,11 +2,10 @@ from pytest import approx
 import scipy
 import qforte as qf
 import numpy as np
-import copy
 
 
 class TestHOTADAPTVQE:
-    def test_hot_adapt(self):
+    def test_hot_adapt_vqe(self):
         geom = [("F", (0, 0, 0)), ("H", (0, 0, 0.9168))]
         mol = qf.system_factory(
             system_type="molecule",
@@ -39,21 +38,25 @@ class TestHOTADAPTVQE:
             qc.set_coeff_vec(v1)
             refs.append(qc)
 
-        alg = qf.Gibbs_ADAPT(
-            mol,
-            state_prep_type="computer",
-            is_multi_state=True,
-            weights=[1 / len(refs)] * len(refs),
-            reference=refs,
+        alg = qf.General_ADAPT(
+            mol, state_prep_type="computer", reference=refs, is_multi_state=True
         )
 
-        U, S, F = alg.run(pool_type="GSD", T=20000, max_depth=2, freeze_pC=True)
+        U, S, F = alg.run(
+            pool_type="GSD",
+            T=20000,
+            max_depth=2,
+            vqe_iter_type="one-step",
+            algorithm="hot-adapt-vqe",
+        )
 
         alg.dm_update()
 
-        h = 1e-6
+        h = 1e-5
 
         F = alg.compute_F(alg._tamps)
+        alg._tamps = np.array([0.5, 0.75])
+        alg.dm_update()
         dF_numerical = scipy.optimize.approx_fprime(
             alg._tamps, alg.compute_F, epsilon=h
         )
@@ -63,23 +66,27 @@ class TestHOTADAPTVQE:
         assert U == approx(-98.58884089990063, abs=1e-10)
         assert S == approx(0.039076852094959605, abs=1e-10)
         assert F == approx(-98.59131588044217, abs=1e-10)
-        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs=1e-5)
 
-        alg = qf.Gibbs_ADAPT(
-            mol,
-            state_prep_type="computer",
-            is_multi_state=True,
-            weights=[1 / len(refs)] * len(refs),
-            reference=refs,
+        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs=1e-6)
+
+        alg = qf.General_ADAPT(
+            mol, state_prep_type="computer", reference=refs, is_multi_state=True
         )
 
-        U, S, F = alg.run(pool_type="GSD", T=20000, max_depth=2, freeze_pC=False)
-
+        U, S, F = alg.run(
+            pool_type="GSD",
+            T=20000,
+            max_depth=2,
+            vqe_iter_type="two-step",
+            algorithm="hot-adapt-vqe",
+        )
         alg.dm_update()
-
-        h = 1e-6
+        h = 1e-5
         alg.freeze_pC = True
+
         F = alg.compute_F(alg._tamps)
+        alg._tamps = np.array([0.5, 0.75])
+        alg.dm_update()
         dF_numerical = scipy.optimize.approx_fprime(
             alg._tamps, alg.compute_F, epsilon=h
         )
@@ -89,7 +96,7 @@ class TestHOTADAPTVQE:
         assert S == approx(0.039076852094959605, abs=1e-10)
         assert F == approx(-98.59131588044217, abs=1e-10)
 
-        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs=1e-5)
+        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs=1e-6)
 
 
 if __name__ == "__main__":

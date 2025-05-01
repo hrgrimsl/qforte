@@ -9,8 +9,7 @@ from qforte.abc.uccvqeabc import UCCVQE
 
 import numpy as np
 import scipy
-import os
-
+import git
 import warnings
 from scipy.optimize import OptimizeWarning
 
@@ -20,94 +19,77 @@ warnings.filterwarnings("ignore", category=OptimizeWarning)
 kb = 3.1668115634564068e-06
 
 
-class Gibbs_ADAPT(UCCVQE):
+class General_ADAPT(UCCVQE):
     def run(
         self,
         pool_type="GSD",
         T=0,
-        max_depth=10,
+        max_depth=100,
         opt_thresh=1e-16,
         restart_file=False,
         verbose=True,
-        freeze_pC=True,
+        vqe_iter_type="one-step",
+        algorithm="hot-adapt-vqe",
+        weights=None,
     ):
         """
         pool_type, string: operators in pool
         T, float: temperature in K
         max_depth, int: Maximum number of operators to use in ansatz
         opt_thresh, float: gtol in bfgs
-        restart_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from.
+        restart_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from
         verbose, bool: Print more detailed output than necessary?
+        hot_vqe_method, string: two-step optimization alternates between updating p/C and tamps.
+        algorithm, string: Do HOT-ADAPT-VQE or MORE-ADAPT-VQE?
+        weights: fixed weights if using MORE-ADAPT-VQE
+        is_multi_state: "Always true.  This will be eliminated with a future UCCSD update.
         """
-
+        self.max_depth = max_depth
         self.opt_thresh = opt_thresh
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
         self._pool_type = pool_type
         self._compact_excitations = True
         self.verbose = verbose
-        self.freeze_pC = freeze_pC
         self.fill_pool()
 
-        self.T = T
-        if self.T != 0:
-            self.beta = 1 / (kb * self.T)
+        repo = git.Repo(search_parent_directories=True)
+        sha = repo.head.object.hexsha
 
         print("\n")
         print("*" * 100)
-        print("HOT-ADAPT-VQE".center(100))
-        print("Code by H.R. Grimsley".center(100))
+        print(f"{algorithm.upper()}".center(100))
+        print(f"commit: {sha}".center(100))
         print("*" * 100)
         print("\n", flush=True)
 
-        self._summary_string = "Summary of HOT-ADAPT-VQE Iterations:\n"
-        self._summary_string += "-" * 100
-        self._summary_string += (
-            f"\n{'Iter.':>8} {'U':>20} {'S':>20} {'F':>20} {'gmax':>20}"
-        )
+        if algorithm == "more-adapt-vqe":
+            self.coupling = False
+            self.T = None
+            self.vqe_iter_type = None
+            self.p = weights
 
-        if restart_file != False:
-            self.parse_existing_file(restart_file)
-            self.compute_F(self._tamps, assign=True)
-        else:
-            self.dm_update()
+        if algorithm == "hot-adapt-vqe":
+            self.coupling = True
+            self.T = T
+            if self.T != 0 and self.T != "Inf":
+                self.beta = 1 / (kb * self.T)
+            self.vqe_iter_type = vqe_iter_type
+            if restart_file != False:
+                self.parse_existing_hot_adapt_vqe_file(restart_file)
+            return self.run_hot_adapt_vqe()
 
-        while len(self._tops) <= max_depth:
+    def run_hot_adapt_vqe(self):
+        self.dm_update()
+        while True:
             op_grads = self.compute_dF3()
             idx = np.argsort(abs(op_grads))
-
-            self._summary_string += f"\n{len(self._tamps):8d} {self.U:+20.16f} {self.S:+20.16f} {self.F:+20.16f} {op_grads[idx[-1]]:+20.16f}"
-            print(self._summary_string)
-            print("-" * 100, flush=True)
-
             if self.verbose == True:
-                self.report_dm()
-                print(f"Operator {idx[-1]} has max gradient {op_grads[idx[-1]]}:")
-                print(f"{self._pool_obj[idx[-1]][1]}\n")
-
-            if len(self._tops) == max_depth:
-                print("Maximum number of operators reached.")
-                return self.U, self.S, self.F
-
-            if len(self._tops) != 0 and self._tops[-1] == idx[-1]:
+                print(f"\nOperators at {len(self._tops)} iterations:", *self._tops)
                 print(
-                    f"""PEPSI-ADAPT-VQE is stuck on the same operator.
-                      Aborting instead of adding re-adding it.
-                      No re-optimization will take place."""
+                    f"\nAmplitudes at {len(self._tops)} iterations:",
+                    *list(self._tamps),
                 )
-                return self.U, self.S, self.F
-            else:
-                self._tops.append(idx[-1])
-                self._tamps = np.array(list(self._tamps) + [0.0])
-                self._tamps = self.Gibbs_VQE(self._tamps)
-
-                if verbose == True:
-                    print(f"\nOperators at {len(self._tops)} iterations:", *self._tops)
-                    print(
-                        f"\nAmplitudes at {len(self._tops)} iterations:",
-                        *list(self._tamps),
-                    )
-
                 print(f"\nIteration {len(self._tops)} Ansatz:\n")
                 print("-" * 50)
                 for i in range(len(self._tops)):
@@ -116,9 +98,22 @@ class Gibbs_ADAPT(UCCVQE):
                     )
                 print("-" * 50)
                 print("\n")
-        return self.U, self.S, self.F
+                self.report_dm()
+                print(f"Operator {idx[-1]} has max gradient {op_grads[idx[-1]]}:")
 
-    def Gibbs_VQE(self, x):
+            if len(self._tops) >= self.max_depth:
+                print("Maximum number of operators already reached.")
+                return self.U, self.S, self.F
+
+            if len(self._tops) != 0 and self._tops[-1] == idx[-1]:
+                print(f"HOT-ADAPT-VQE is stuck on the same operator. Aborting.")
+                return self.U, self.S, self.F
+
+            self._tops.append(idx[-1])
+            self._tamps = np.array(list(self._tamps) + [0.0])
+            self._tamps = self.HOT_VQE(self._tamps)
+
+    def HOT_VQE(self, x):
         print("Running HOT-VQE...\n")
         prev_res = self.compute_F(x)
         self.vqe_iter = 0
@@ -139,15 +134,16 @@ class Gibbs_ADAPT(UCCVQE):
             self._tamps = res.x
             print("Updating ensemble...", flush=True)
             self.dm_update()
-            if abs(self.F - prev_res) < 1e-16 or self.freeze_pC == False:
-                print("HOT-VQE Done.", flush=True)
+
+            if self.vqe_iter_type == "one-step" or abs(self.F - prev_res) < 1e-16:
                 return res.x
 
     def F_callback(self, x):
-        print(
-            f"{self.vqe_iter:>6}          {self.compute_F(x):+20.16f}        {self.dF_norm:+20.16f}",
-            flush=True,
-        )
+        if self.verbose == True:
+            print(
+                f"{self.vqe_iter:>6}          {self.compute_F(x):+20.16f}        {self.dF_norm:+20.16f}",
+                flush=True,
+            )
         self.vqe_iter += 1
 
     def report_dm(self):
@@ -173,15 +169,16 @@ class Gibbs_ADAPT(UCCVQE):
             sigmas = []
             kets = []
             # Diagonalize effective H in subspace
-            U = self.build_Uvqc()
+            Uvqc = self.build_Uvqc()
 
             for i, det in enumerate(self._ref):
                 sigma = qf.Computer(self._nqb)
                 sigma.set_coeff_vec(det.get_coeff_vec())
-                sigma.apply_circuit(U[i])
+                sigma.apply_circuit(Uvqc[i])
                 kets.append(sigma.get_coeff_vec())
                 sigma.apply_operator(self._qb_ham)
                 sigmas.append(sigma.get_coeff_vec())
+
             sigma = np.array(sigmas).real
             kets = np.array(kets).real
             H_eff = sigma @ kets.T
@@ -200,26 +197,22 @@ class Gibbs_ADAPT(UCCVQE):
             self.F = self.U - (1 / self.beta) * self.S
 
     def compute_F(self, x, assign=False):
-        # if self.freeze_pC == False:
-        #    self._tamps = x
-        #    self.dm_update()
         if self._state_prep_type == "computer":
             sigmas = []
             kets = []
-            U = self.build_Uvqc(x)
+            Uvqc = self.build_Uvqc(x)
             for i, det in enumerate(self._ref):
                 sigma = qf.Computer(self._nqb)
                 sigma.set_coeff_vec(det.get_coeff_vec())
-                sigma.apply_circuit(U[i])
+                sigma.apply_circuit(Uvqc[i])
                 kets.append(sigma.get_coeff_vec())
                 sigma.apply_operator(self._qb_ham)
                 sigmas.append(sigma.get_coeff_vec())
             sigma = np.array(sigmas).real
             kets = np.array(kets).real
             H_eff = sigma @ kets.T
-            if self.freeze_pC == False:
+            if self.vqe_iter_type == "one-step":
                 self.w, self.C = np.linalg.eigh(H_eff)
-                w = self.w
                 if self.T == 0:
                     q = np.zeros(len(w))
                     q[0] = 1
@@ -231,23 +224,13 @@ class Gibbs_ADAPT(UCCVQE):
                 plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
                 self.S = -sum(plogp)
                 self.F = self.U - (1 / self.beta) * self.S
+                return self.F
             else:
                 w = np.diag(self.C.T @ H_eff @ self.C)
-
-            if assign:
-                self.U = w.T @ self.p
                 plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
-                self.S = -sum(plogp)
-
-            if self.T != "Inf":
-                F = w @ self.p - (1 / self.beta) * self.S
-            else:
-                F = w @ self.p
-
-            if assign:
-                self.w = w
-                self.F = F
-        return F
+                S = -sum(plogp)
+                F = w.T @ self.p - (1 / self.beta) * S
+                return F
 
     def compute_spins(self, x):
         Sz_sigmas = []
@@ -274,10 +257,7 @@ class Gibbs_ADAPT(UCCVQE):
         return np.diag(Sz_eff), np.diag(S2_eff)
 
     def compute_dF3(self):
-        if self.freeze_pC == False:
-            self.dm_update()
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
-
         alphas = np.zeros((len(self._ref), len(self._pool_obj), pow(2, self._nqb)))
         sigmas = np.zeros((len(self._ref), pow(2, self._nqb)))
         U = self.build_Uvqc(self._tamps)
@@ -293,7 +273,6 @@ class Gibbs_ADAPT(UCCVQE):
                 sigma = qf.Computer(ref)
                 sigma.apply_circuit(U[i])
                 sigma.apply_operator(self._qb_ham)
-
                 sigmas[i, :] = np.array(sigma.get_coeff_vec()).real
 
             for i, ref in enumerate(self._ref):
@@ -302,7 +281,6 @@ class Gibbs_ADAPT(UCCVQE):
                 for j in range(len(Kmus)):
                     atemp = qf.Computer(alpha)
                     atemp.apply_operator(Kmus[j])
-
                     alphas[i, j, :] = np.array(atemp.get_coeff_vec()).real
 
         dH = np.einsum("iv,juv->iju", sigmas, alphas)
@@ -310,10 +288,11 @@ class Gibbs_ADAPT(UCCVQE):
 
         dF = np.einsum("ji,jku,ki->iu", self.C, dH, self.C)
         dF = np.einsum("i,iu->u", self.p, dF)
+
         return dF
 
     def compute_dF(self, x):
-        if self.freeze_pC == False:
+        if self.vqe_iter_type == "one-step":
             self._tamps = x
             self.dm_update()
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
@@ -365,7 +344,7 @@ class Gibbs_ADAPT(UCCVQE):
         self.dF_norm = np.linalg.norm(dF)
         return dF
 
-    def parse_existing_file(self, filename):
+    def parse_existing_hot_adapt_vqe_file(self, filename):
         with open(filename, "r") as f:
             lines = f.readlines()
             for i in range(len(lines) - 1, -1, -1):
@@ -410,6 +389,7 @@ class Gibbs_ADAPT(UCCVQE):
 
         assert len(self._tops) == len(self._tamps)
         assert len(self.p) == self.C.shape[0] == self.C.shape[1] == len(self._ref)
+        self.dm_update()
 
     def get_num_commut_measurements(self):
         pass
