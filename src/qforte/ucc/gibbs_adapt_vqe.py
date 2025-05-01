@@ -29,7 +29,7 @@ class Gibbs_ADAPT(UCCVQE):
         opt_thresh=1e-16,
         restart_file=False,
         verbose=True,
-        freeze_pC = True
+        freeze_pC=True,
     ):
         """
         pool_type, string: operators in pool
@@ -143,7 +143,6 @@ class Gibbs_ADAPT(UCCVQE):
             if abs(self.F - prev_res) < 1e-16 or self.freeze_pC == False:
                 print("HOT-VQE Done.", flush=True)
                 return res.x
-            
 
     def F_callback(self, x):
         print(
