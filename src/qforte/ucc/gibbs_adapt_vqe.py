@@ -200,9 +200,9 @@ class Gibbs_ADAPT(UCCVQE):
             self.F = self.U - (1 / self.beta) * self.S
 
     def compute_F(self, x, assign=False):
-        #if self.freeze_pC == False:
+        # if self.freeze_pC == False:
         #    self._tamps = x
-        #    self.dm_update() 
+        #    self.dm_update()
         if self._state_prep_type == "computer":
             sigmas = []
             kets = []
