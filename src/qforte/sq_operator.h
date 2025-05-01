@@ -6,6 +6,7 @@
 #include <vector>
 #include <numeric>
 #include <map>
+#include <cstdint>
 
 class Gate;
 
