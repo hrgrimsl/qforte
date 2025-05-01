@@ -226,7 +226,8 @@ class ADAPTVQE(UCCVQE):
 
             if self._verbose:
                 print(
-                    "\ntamplitudes for tops post solve: \n", [float(i) for i in list(np.real(self._tamps))]
+                    "\ntamplitudes for tops post solve: \n",
+                    [float(i) for i in list(np.real(self._tamps))],
                 )
                 if self._is_multi_state:
                     diag_string = f"Current Energies {avqe_iter + 1}:"

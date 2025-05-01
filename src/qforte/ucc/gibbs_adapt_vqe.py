@@ -66,7 +66,6 @@ class Gibbs_ADAPT(UCCVQE):
             f"\n{'Iter.':>8} {'U':>20} {'S':>20} {'F':>20} {'gmax':>20}"
         )
 
-
         if restart_file != False:
             self.parse_existing_file(restart_file)
             self.compute_F(self._tamps, assign=True)
