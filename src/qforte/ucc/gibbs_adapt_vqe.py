@@ -200,9 +200,9 @@ class Gibbs_ADAPT(UCCVQE):
             self.F = self.U - (1 / self.beta) * self.S
 
     def compute_F(self, x, assign=False):
-        if self.freeze_pC == False:
-            self._tamps = x
-            self.dm_update()
+        #if self.freeze_pC == False:
+        #    self._tamps = x
+        #    self.dm_update() 
         if self._state_prep_type == "computer":
             sigmas = []
             kets = []
@@ -217,10 +217,25 @@ class Gibbs_ADAPT(UCCVQE):
             sigma = np.array(sigmas).real
             kets = np.array(kets).real
             H_eff = sigma @ kets.T
-            w = np.diag(self.C.T @ H_eff @ self.C)
+            if self.freeze_pC == False:
+                self.w, self.C = np.linalg.eigh(H_eff)
+                w = self.w
+                if self.T == 0:
+                    q = np.zeros(len(w))
+                    q[0] = 1
+                else:
+                    q = np.exp(-self.beta * (self.w - self.w[0]))
+                Z = np.sum(q)
+                self.p = q / Z
+                self.U = self.w.T @ self.p
+                plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
+                self.S = -sum(plogp)
+                self.F = self.U - (1 / self.beta) * self.S
+            else:
+                w = np.diag(self.C.T @ H_eff @ self.C)
 
             if assign:
-                self.U = w @ self.p
+                self.U = w.T @ self.p
                 plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
                 self.S = -sum(plogp)
 
