@@ -30,6 +30,7 @@ class General_ADAPT(UCCVQE):
         verbose=True,
         vqe_iter_type="one-step",
         algorithm="hot-adapt-vqe",
+        optimizer="bfgs",
         weights=None,
     ):
         """
@@ -51,8 +52,9 @@ class General_ADAPT(UCCVQE):
         self._pool_type = pool_type
         self._compact_excitations = True
         self.verbose = verbose
+        self.optimizer = optimizer
         self.fill_pool()
-
+        
         repo = git.Repo(search_parent_directories=True)
         sha = repo.head.object.hexsha
 
@@ -127,7 +129,7 @@ class General_ADAPT(UCCVQE):
                 x,
                 jac=self.compute_dF,
                 callback=self.F_callback,
-                method="bfgs",
+                method=self.optimizer,
                 options={"gtol": self.opt_thresh},
             )
             x = res.x
