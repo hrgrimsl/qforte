@@ -126,6 +126,7 @@ class General_ADAPT(UCCVQE):
                 jac=self.compute_dF,
                 callback=self.F_callback,
                 method=self.optimizer,
+                tol = self.opt_thresh,
                 options={"gtol": self.opt_thresh},
             )
             x = res.x
