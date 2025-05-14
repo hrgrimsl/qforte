@@ -55,13 +55,9 @@ class General_ADAPT(UCCVQE):
         self.optimizer = optimizer
         self.fill_pool()
         
-        repo = git.Repo(search_parent_directories=True)
-        sha = repo.head.object.hexsha
-
         print("\n")
         print("*" * 100)
         print(f"{algorithm.upper()}".center(100))
-        print(f"commit: {sha}".center(100))
         print("*" * 100)
         print("\n", flush=True)
 
