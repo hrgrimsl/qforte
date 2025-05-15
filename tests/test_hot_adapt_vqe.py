@@ -46,52 +46,20 @@ class TestHOTADAPTVQE:
             pool_type="GSD",
             T=20000,
             max_depth=2,
-            vqe_iter_type="one-step",
             algorithm="hot-adapt-vqe",
         )
-
-        alg.dm_update()
 
         h = 1e-5
 
         F = alg.compute_F(alg._tamps)
         alg._tamps = np.array([0.5, 0.75])
-        alg.dm_update()
+        alg.compute_F(alg._tamps)
         dF_numerical = scipy.optimize.approx_fprime(
             alg._tamps, alg.compute_F, epsilon=h
         )
 
-        dF_analytical = alg.compute_dF(alg._tamps)
+        dF_analytical = alg.compute_dF(alg._tamps)[1]
 
-        assert U == approx(-98.58884089990063, abs=1e-10)
-        assert S == approx(0.039076852094959605, abs=1e-10)
-        assert F == approx(-98.59131588044217, abs=1e-10)
-
-        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs=1e-6)
-
-        alg = qf.General_ADAPT(
-            mol, state_prep_type="computer", reference=refs, is_multi_state=True
-        )
-
-        U, S, F = alg.run(
-            pool_type="GSD",
-            T=20000,
-            max_depth=2,
-            vqe_iter_type="two-step",
-            algorithm="hot-adapt-vqe",
-        )
-        alg.dm_update()
-        h = 1e-5
-        alg.freeze_pC = True
-
-        F = alg.compute_F(alg._tamps)
-        alg._tamps = np.array([0.5, 0.75])
-        alg.dm_update()
-        dF_numerical = scipy.optimize.approx_fprime(
-            alg._tamps, alg.compute_F, epsilon=h
-        )
-
-        dF_analytical = alg.compute_dF(alg._tamps)
         assert U == approx(-98.58884089990063, abs=1e-10)
         assert S == approx(0.039076852094959605, abs=1e-10)
         assert F == approx(-98.59131588044217, abs=1e-10)

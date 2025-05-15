@@ -1,48 +1,37 @@
-"""
-Classes for Gibbs State ADAPT-VQE
-====================================
-"""
-
 import qforte as qf
 
 from qforte.abc.uccvqeabc import UCCVQE
 
 import numpy as np
 import scipy
-import git
 import warnings
 from scipy.optimize import OptimizeWarning
 
 warnings.filterwarnings("ignore", category=OptimizeWarning)
 
-
 kb = 3.1668115634564068e-06
-
 
 class General_ADAPT(UCCVQE):
     def run(
         self,
+        algorithm="hot-adapt-vqe",
         pool_type="GSD",
-        T=0,
-        max_depth=100,
-        opt_thresh=1e-16,
+        max_depth=1000,
+        opt_thresh=1e-16, 
         restart_file=False,
         verbose=True,
-        vqe_iter_type="one-step",
-        algorithm="hot-adapt-vqe",
-        weights=None,
+        T=None, 
+        weights=None
     ):
         """
-        pool_type, string: operators in pool
-        T, float: temperature in K
+        algorithm, string: Choices are adapt-vqe, more-adapt-vqe, and hot-adapt-vqe
+        pool_type, string: operators in pool        
         max_depth, int: Maximum number of operators to use in ansatz
         opt_thresh, float: gtol in bfgs
         restart_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from
         verbose, bool: Print more detailed output than necessary?
-        hot_vqe_method, string: two-step optimization alternates between updating p/C and tamps.
-        algorithm, string: Do HOT-ADAPT-VQE or MORE-ADAPT-VQE?
-        weights: fixed weights if using MORE-ADAPT-VQE
-        is_multi_state: "Always true.  This will be eliminated with a future UCCSD update.
+        T, float: Temperature, only needed for HOT-ADAPT-VQE 
+        weights: Fixed ensemble weights, only needed for MORE-ADAPT-VQE
         """
         self.max_depth = max_depth
         self.opt_thresh = opt_thresh
@@ -58,11 +47,15 @@ class General_ADAPT(UCCVQE):
         print(f"{algorithm.upper()}".center(100))
         print("*" * 100)
         print("\n", flush=True)
+        
+        if algorithm == "adapt-vqe":
+            self.coupling = False
+            self.T = None
+            self.p = np.array([1])
 
         if algorithm == "more-adapt-vqe":
             self.coupling = False
             self.T = None
-            self.vqe_iter_type = None
             self.p = weights
 
         if algorithm == "hot-adapt-vqe":
@@ -70,13 +63,12 @@ class General_ADAPT(UCCVQE):
             self.T = T
             if self.T != 0 and self.T != "Inf":
                 self.beta = 1 / (kb * self.T)
-            self.vqe_iter_type = vqe_iter_type
             if restart_file != False:
                 self.parse_existing_hot_adapt_vqe_file(restart_file)
             return self.run_hot_adapt_vqe()
 
     def run_hot_adapt_vqe(self):
-        self.dm_update()
+        self.compute_F(self._tamps)
         while True:
             op_grads = self.compute_dF3()
             idx = np.argsort(abs(op_grads))
@@ -111,27 +103,20 @@ class General_ADAPT(UCCVQE):
 
     def HOT_VQE(self, x):
         print("Running HOT-VQE...\n")
-        prev_res = self.compute_F(x)
         self.vqe_iter = 0
         print(f"HOT-VQE Iter.      Free Energy (Eh)     gnorm")
         while True:
             self.compute_dF(x)
             self.F_callback(x)
-            prev_res = self.F
             res = scipy.optimize.minimize(
-                self.compute_F,
+                self.compute_dF,
                 x,
-                jac=self.compute_dF,
+                jac=True,
                 callback=self.F_callback,
                 options={"gtol": self.opt_thresh},
             )
-            x = res.x
             self._tamps = res.x
-            print("Updating ensemble...", flush=True)
-            self.dm_update()
-
-            if self.vqe_iter_type == "one-step" or abs(self.F - prev_res) < 1e-16:
-                return res.x
+            return res.x
 
     def F_callback(self, x):
         if self.verbose == True:
@@ -142,43 +127,28 @@ class General_ADAPT(UCCVQE):
         self.vqe_iter += 1
 
     def report_dm(self):
-        print("ρ = ")
+        self.compute_F(self._tamps)
+        print(f"\nρ_{len(self._tamps)} = ")
         Sz, S2 = self.compute_spins(self._tamps)
         for i in range(len(self._ref)):
             print(
-                f"{self.p[i]:+20.16f} |{i}><{i}| (Sz = {Sz[i]:+20.16f}, S^2 = {S2[i]:20.16f}, Energy = {self.w[i]:+20.16f})"
+                f"{self.p[i]:+20.16f} |{i}><{i}| (Sz = {Sz[i]:+20.16f}, S2 = {S2[i]:20.16f}, E = {self.w[i]:+20.16f})"
             )
         print("\n")
-        print(f"Internal Energy         U  = {self.U:+20.16f}")
-        print(f"Entropy                 S  = {self.S:20.16f}")
-        print(f"Helmholtz Free Energy   F  = {self.F:+20.16f}")
-        print(f"Thermal Averaged Sz     Sz = {self.p.T@Sz:+20.16f}")
-        print(f"Thermal Averaged S2     S2 = {self.p.T@S2:+20.16f}")
-        print(f"\nCI Coefficients at {len(self._tamps)} ADAPT iterations:\n")
+        print(f"U:  {self.U:+20.16f}")
+        print(f"S:  {self.S:20.16f}")
+        print(f"F:  {self.F:+20.16f}")
+        print(f"Sz: {self.p.T@Sz:+20.16f}")
+        print(f"S2: {self.p.T@S2:+20.16f}")
+        print(f"\nCI Coefficients:\n")
         for i in range(self.C.shape[0]):
             print(*list(self.C[i, :]))
         print("\n")
 
-    def dm_update(self):
+    def compute_F(self, x):
         if self._state_prep_type == "computer":
-            sigmas = []
-            kets = []
-            # Diagonalize effective H in subspace
-            Uvqc = self.build_Uvqc()
-
-            for i, det in enumerate(self._ref):
-                sigma = qf.Computer(self._nqb)
-                sigma.set_coeff_vec(det.get_coeff_vec())
-                sigma.apply_circuit(Uvqc[i])
-                kets.append(sigma.get_coeff_vec())
-                sigma.apply_operator(self._qb_ham)
-                sigmas.append(sigma.get_coeff_vec())
-
-            sigma = np.array(sigmas).real
-            kets = np.array(kets).real
-            H_eff = sigma @ kets.T
+            H_eff = self.compute_H_eff(x)
             self.w, self.C = np.linalg.eigh(H_eff)
-            # Compute Boltzmann probabilities
             if self.T == 0:
                 q = np.zeros(len(self.w))
                 q[0] = 1
@@ -187,45 +157,27 @@ class General_ADAPT(UCCVQE):
             Z = np.sum(q)
             self.p = q / Z
             self.U = self.w.T @ self.p
-            plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
-            self.S = -sum(plogp)
+            plogp = np.array([p * np.log(p) if p > 0 else 0 for p in self.p])
+            self.S = -np.sum(plogp)
             self.F = self.U - (1 / self.beta) * self.S
+            return self.F
 
-    def compute_F(self, x, assign=False):
-        if self._state_prep_type == "computer":
-            sigmas = []
-            kets = []
-            Uvqc = self.build_Uvqc(x)
-            for i, det in enumerate(self._ref):
-                sigma = qf.Computer(self._nqb)
-                sigma.set_coeff_vec(det.get_coeff_vec())
-                sigma.apply_circuit(Uvqc[i])
-                kets.append(sigma.get_coeff_vec())
-                sigma.apply_operator(self._qb_ham)
-                sigmas.append(sigma.get_coeff_vec())
-            sigma = np.array(sigmas).real
-            kets = np.array(kets).real
-            H_eff = sigma @ kets.T
-            if self.vqe_iter_type == "one-step":
-                self.w, self.C = np.linalg.eigh(H_eff)
-                if self.T == 0:
-                    q = np.zeros(len(w))
-                    q[0] = 1
-                else:
-                    q = np.exp(-self.beta * (self.w - self.w[0]))
-                Z = np.sum(q)
-                self.p = q / Z
-                self.U = self.w.T @ self.p
-                plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
-                self.S = -sum(plogp)
-                self.F = self.U - (1 / self.beta) * self.S
-                return self.F
-            else:
-                w = np.diag(self.C.T @ H_eff @ self.C)
-                plogp = [p * np.log(p) if p > 0 else 0 for p in self.p]
-                S = -sum(plogp)
-                F = w.T @ self.p - (1 / self.beta) * S
-                return F
+    def compute_H_eff(self, x):
+        sigmas = []
+        kets = []
+        Uvqc = self.build_Uvqc(x)
+        for i, det in enumerate(self._ref):
+            sigma = qf.Computer(self._nqb)
+            sigma.set_coeff_vec(det.get_coeff_vec())
+            sigma.apply_circuit(Uvqc[i])
+            kets.append(sigma.get_coeff_vec())
+            sigma.apply_operator(self._qb_ham)
+            sigmas.append(sigma.get_coeff_vec())
+        sigma = np.array(sigmas).real
+        kets = np.array(kets).real
+        H_eff = sigma @ kets.T
+        return H_eff 
+
 
     def compute_spins(self, x):
         Sz_sigmas = []
@@ -286,14 +238,12 @@ class General_ADAPT(UCCVQE):
 
         return dF
 
-    def compute_dF(self, x):
-        if self.vqe_iter_type == "one-step":
-            self._tamps = x
-            self.dm_update()
+    def compute_dF(self, x):    
+        F = self.compute_F(x)
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
         alphas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
         sigmas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
-        U = self.build_Uvqc(x)
+        U_vqc = self.build_Uvqc(x)
         # A - A'
         Kmus = []
         # Exp(-t_mu(A - A'))
@@ -317,7 +267,7 @@ class General_ADAPT(UCCVQE):
         if self._state_prep_type == "computer":
             for i, ref in enumerate(self._ref):
                 sigma = qf.Computer(ref)
-                sigma.apply_circuit(U[i])
+                sigma.apply_circuit(U_vqc[i])
                 sigma.apply_operator(self._qb_ham)
                 for j in range(len(self._tamps)):
                     sigmas[i, -j - 1, :] = np.array(sigma.get_coeff_vec()).real
@@ -325,7 +275,7 @@ class General_ADAPT(UCCVQE):
 
             for i, ref in enumerate(self._ref):
                 alpha = qf.Computer(ref)
-                alpha.apply_circuit(U[i])
+                alpha.apply_circuit(U_vqc[i])
                 for j in range(len(self._tamps)):
                     atemp = qf.Computer(alpha)
                     atemp.apply_operator(Kmus[-j - 1])
@@ -337,7 +287,7 @@ class General_ADAPT(UCCVQE):
         dF = np.einsum("ji,jku,ki->iu", self.C, dH, self.C)
         dF = np.einsum("i,iu->u", self.p, dF)
         self.dF_norm = np.linalg.norm(dF)
-        return dF
+        return F, dF
 
     def parse_existing_hot_adapt_vqe_file(self, filename):
         with open(filename, "r") as f:
@@ -355,7 +305,7 @@ class General_ADAPT(UCCVQE):
         with open(filename, "r") as f:
             lines = f.readlines()
             for i in range(len(lines) - 1, -1, -1):
-                if lines[i].strip().startswith("ρ ="):
+                if lines[i].strip().startswith("ρ_"):
                     start_idx = i + 1
                     break
         coeffs = []
@@ -384,7 +334,7 @@ class General_ADAPT(UCCVQE):
 
         assert len(self._tops) == len(self._tamps)
         assert len(self.p) == self.C.shape[0] == self.C.shape[1] == len(self._ref)
-        self.dm_update()
+        self.compute_F(self._tamps)
 
     def get_num_commut_measurements(self):
         pass
