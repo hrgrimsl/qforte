@@ -30,7 +30,6 @@ class General_ADAPT(UCCVQE):
         verbose=True,
         vqe_iter_type="one-step",
         algorithm="hot-adapt-vqe",
-        optimizer="bfgs",
         weights=None,
     ):
         """
@@ -52,9 +51,8 @@ class General_ADAPT(UCCVQE):
         self._pool_type = pool_type
         self._compact_excitations = True
         self.verbose = verbose
-        self.optimizer = optimizer
         self.fill_pool()
-        
+
         print("\n")
         print("*" * 100)
         print(f"{algorithm.upper()}".center(100))
@@ -125,8 +123,6 @@ class General_ADAPT(UCCVQE):
                 x,
                 jac=self.compute_dF,
                 callback=self.F_callback,
-                method=self.optimizer,
-                tol = self.opt_thresh,
                 options={"gtol": self.opt_thresh},
             )
             x = res.x
