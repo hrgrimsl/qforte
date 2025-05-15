@@ -147,8 +147,12 @@ class General_ADAPT(UCCVQE):
 
     def compute_F(self, x):
         if self._state_prep_type == "computer":
-            H_eff = self.compute_H_eff(x)
-            self.w, self.C = np.linalg.eigh(H_eff)
+            if self.coupling == True:
+                H_eff = self.compute_H_eff(x)
+                self.w, self.C = np.linalg.eigh(H_eff)
+            else:
+                self.w = self.compute_uncoupled_Es(x)
+
             if self.T == 0:
                 q = np.zeros(len(self.w))
                 q[0] = 1
@@ -176,9 +180,20 @@ class General_ADAPT(UCCVQE):
         sigma = np.array(sigmas).real
         kets = np.array(kets).real
         H_eff = sigma @ kets.T
-        return H_eff 
-
-
+        return H_eff
+    
+    def compute_uncoupled_Es(self, x):
+        Uvqc = self.build_Uvqc(x)
+        w = np.zeros(len(self._ref))
+        for i in range(len(self._ref)):
+            sigma = qf.Computer(self._nqb)
+            sigma.set_coeff_vec(self._ref[i].get_coeff_vec())
+            sigma.apply_circuit(Uvqc[i])
+            ket = sigma.get_coeff_vec()
+            sigma.apply_operator(self._qb_ham)
+            w[i] = (sigma.get_coeff_vec().T@ket).real
+        return w
+    
     def compute_spins(self, x):
         Sz_sigmas = []
         S2_sigmas = []
@@ -199,8 +214,9 @@ class General_ADAPT(UCCVQE):
         kets = np.array(kets).real
         Sz_eff = Sz_sigma @ kets.T
         S2_eff = S2_sigma @ kets.T
-        Sz_eff = self.C.T @ Sz_eff @ self.C
-        S2_eff = self.C.T @ S2_eff @ self.C
+        if self.coupling == True:
+            Sz_eff = self.C.T @ Sz_eff @ self.C
+            S2_eff = self.C.T @ S2_eff @ self.C
         return np.diag(Sz_eff), np.diag(S2_eff)
 
     def compute_dF3(self):
@@ -244,26 +260,7 @@ class General_ADAPT(UCCVQE):
         alphas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
         sigmas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
         U_vqc = self.build_Uvqc(x)
-        # A - A'
-        Kmus = []
-        # Exp(-t_mu(A - A'))
-        Umus = []
-        for mu, t in enumerate(x):
-            Kmu = self._pool_obj[self._tops[mu]][1].jw_transform(
-                self._qubit_excitations
-            )
-            Kmu.mult_coeffs(self._pool_obj[self._tops[mu]][0])
-            Kmus.append(Kmu)
-            Umu = qf.Circuit()
-            Umu.add(
-                qf.compact_excitation_circuit(
-                    -t * self._pool_obj[self._tops[mu]][1].terms()[1][0],
-                    self._pool_obj[self._tops[mu]][1].terms()[1][1],
-                    self._pool_obj[self._tops[mu]][1].terms()[1][2],
-                    self._qubit_excitations,
-                )
-            )
-            Umus.append(Umu)
+        Kmus, Umus = self.get_gradient_components(x)
         if self._state_prep_type == "computer":
             for i, ref in enumerate(self._ref):
                 sigma = qf.Computer(ref)
@@ -288,6 +285,87 @@ class General_ADAPT(UCCVQE):
         dF = np.einsum("i,iu->u", self.p, dF)
         self.dF_norm = np.linalg.norm(dF)
         return F, dF
+
+    def compute_uncoupled_dF3(self, x):
+        F = self.compute_F(x) 
+        U_vqc = self.build_Uvqc(self._tamps)
+        # A - A'
+        Kmus = []
+        for mu in range(len(self._pool_obj)):
+            Kmu = self._pool_obj[mu][1].jw_transform(self._qubit_excitations)
+            Kmu.mult_coeffs(self._pool_obj[mu][0])
+            Kmus.append(Kmu)
+        dH = np.zeros(len(x))
+
+        if self._state_prep_type == "computer":
+            for i, ref in enumerate(self._ref):
+                sigma = qf.Computer(ref)
+                sigma.apply_circuit(U_vqc[i])
+                alpha = qf.Computer(sigma)
+                sigma.apply_operator(self._qb_ham)
+                for k, K in enumerate(Kmus):
+                    atemp = qf.Computer(alpha)
+                    atemp.apply_operator(K)
+                    dH[k] += atemp.get_coeff_vec()@sigma.get_coeff_vec()
+
+            for i, ref in enumerate(self._ref):
+                alpha = qf.Computer(ref)
+                alpha.apply_circuit(U[i])
+                for j in range(len(Kmus)):
+                    atemp = qf.Computer(alpha)
+                    atemp.apply_operator(Kmus[j])
+                    alphas[i, j, :] = np.array(atemp.get_coeff_vec()).real
+
+        dH = np.einsum("iv,juv->iju", sigmas, alphas)
+        dH += np.einsum("jv,iuv->iju", sigmas, alphas)
+
+        dF = np.einsum("ji,jku,ki->iu", self.C, dH, self.C)
+        dF = np.einsum("i,iu->u", self.p, dF)
+        self.dF_norm = np.linalg.norm(dF)
+        return F, dF
+     
+    def compute_uncoupled_dF(self, x):
+        F = self.compute_F(x)
+        U_vqc = self.build_Uvqc(x)
+        Kmus, Umus = self.build_Kmus_and_Umus(self, x)
+        dH = np.zeros(len(x))
+        for i, ref in enumerate(self._ref):        
+            alpha = qf.Computer(ref)
+            alpha.apply_circuit(U_vqc)
+            sigma = qf.Computer(alpha)
+            sigma.apply_operator(self._qb_ham)
+            for j, t_j in enumerate(self._tamps):
+                atemp = qf.computer(alpha)
+                atemp.apply_operator(Kmus[-j - 1])
+                dH[j] += atemp.get_coeff_vec().T@sigma.get_coeff_vec()
+                if i != len(self._ref) - 1:
+                    sigma.apply_circuit(Umus[-j - 1])
+                    alpha.apply_circuit(Umus[-j - 1])
+        dF = np.einsum("i,iu->u", self.p, dF)
+        return F, dF
+    
+    def get_gradient_components(self, x):
+        #A-A'
+        Kmus = []
+        #exp(t(A-A'))
+        Umus = []
+        for mu, t in enumerate(x):
+            Kmu = self._pool_obj[self._tops[mu]][1].jw_transform(
+                self._qubit_excitations
+            )
+            Kmu.mult_coeffs(self._pool_obj[self._tops[mu]][0])
+            Kmus.append(Kmu)
+            Umu = qf.Circuit()
+            Umu.add(
+                qf.compact_excitation_circuit(
+                    -t * self._pool_obj[self._tops[mu]][1].terms()[1][0],
+                    self._pool_obj[self._tops[mu]][1].terms()[1][1],
+                    self._pool_obj[self._tops[mu]][1].terms()[1][2],
+                    self._qubit_excitations,
+                )
+            )
+            Umus.append(Umu)
+        return Kmus, Umus
 
     def parse_existing_hot_adapt_vqe_file(self, filename):
         with open(filename, "r") as f:
