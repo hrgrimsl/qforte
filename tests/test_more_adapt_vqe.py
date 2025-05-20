@@ -241,6 +241,25 @@ class TestMOREADAPTVQE:
             for j in range(len(E_more)):
                 assert dip_dir[i, j] - total_dip[i, j] == approx(0.0, abs=2e-7)
 
+        alg = General_ADAPT(
+            mol,
+            reference=computers,
+            compact_excitations=True,
+            state_prep_type="computer",
+        )
+
+        alg.run(
+            pool_type="GSD",
+            algorithm="more-adapt-vqe",
+            max_depth=30,
+            weights=[0.6, 0.4],
+            verbose=True,
+        )
+        alg.coupling = True
+        alg.compute_F(alg._tamps)
+        for i in range(len(E_more)):
+            assert E_more[i] == approx(alg.w[i], abs=1.0e-10)
+
         spaces = [[1, 0, 0, 0], [2, 0, 0, 0], [1, 0, 1, 1]]
         mol = system_factory(
             system_type="molecule",
@@ -322,15 +341,21 @@ class TestMOREADAPTVQE:
         alg.run(pool_type="GSD", adapt_maxiter=3)
         for i in range(4):
             assert correct_Es[i] == approx(alg._diag_energies[-1][i])
-        
+
         alg = General_ADAPT(
             mol,
-            reference=comp_refs, 
+            reference=comp_refs,
             compact_excitations=True,
             state_prep_type="computer",
         )
-        
-        alg.run(pool_type="GSD", algorithm = "more-adapt-vqe", max_depth=3, weights = [.25] * 4, verbose = True)
+
+        alg.run(
+            pool_type="GSD",
+            algorithm="more-adapt-vqe",
+            max_depth=3,
+            weights=[0.25] * 4,
+            verbose=True,
+        )
         alg.coupling = True
         alg.compute_F(alg._tamps)
         for i in range(4):

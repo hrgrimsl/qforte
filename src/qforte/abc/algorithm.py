@@ -100,7 +100,7 @@ class Algorithm(ABC):
 
                 self._refprep = qforte.build_refprep(self._ref)
                 self._Uprep = qf.Circuit(self._refprep)
-                self._nqb  = len(self.hf_reference)            
+                self._nqb = len(self.hf_reference)
 
             elif self._state_prep_type == "unitary_circ":
                 if not isinstance(reference, qf.Circuit):
@@ -109,12 +109,10 @@ class Algorithm(ABC):
                 self._ref = system.hf_reference
                 self._refprep = build_refprep(self._ref)
                 self._Uprep = reference
-                self._nqb  = len(self.hf_reference)            
+                self._nqb = len(self.hf_reference)
 
             elif self._state_prep_type == "computer":
-                arr = abs(np.array(self._ref[0].get_coeff_vec()))
-                self._nqb = arr.index(max(arr))
-                assert 0 == 1 
+
                 if not isinstance(reference, qf.Computer):
                     if not isinstance(reference[0], qf.Computer):
                         raise ValueError("computer reference must be a Computer.")
@@ -122,17 +120,18 @@ class Algorithm(ABC):
                     raise ValueError(
                         "`self._fast = False` specifies not to skip steps, but `self._state_prep_type = computer` specifies to skip state initialization. That's inconsistent."
                     )
-                
+
                 if (
                     not hasattr(self, "computer_initializable")
                     or not self.computer_initializable
                 ):
                     raise ValueError("Class cannot be initialized with a computer.")
 
-                if self._state_prep_type != "computer": 
+                if self._state_prep_type != "computer":
                     self._ref = system.hf_reference
                 else:
                     self._ref = reference
+                self._nqb = (len(self._ref[0].get_coeff_vec())).bit_length() - 1
                 self._refprep = build_refprep(self._ref)
                 self._Uprep = qf.Circuit()
                 self.computer = reference
@@ -141,7 +140,6 @@ class Algorithm(ABC):
                 raise ValueError(
                     "QForte only supports references as occupation lists, Circuits, or Computers."
                 )
-            
 
         else:
             try:
@@ -235,7 +233,7 @@ class Algorithm(ABC):
                 self._nqb = len(self._ref[0])
 
         self._qb_ham = system.hamiltonian
-        #if self._qb_ham.num_qubits() != self._nqb:
+        # if self._qb_ham.num_qubits() != self._nqb:
         #    raise ValueError(
         #        f"The reference has {self._nqb} qubits, but the Hamiltonian has {self._qb_ham.num_qubits()}. This is inconsistent."
         #    )

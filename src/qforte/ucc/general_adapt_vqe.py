@@ -11,26 +11,27 @@ warnings.filterwarnings("ignore", category=OptimizeWarning)
 
 kb = 3.1668115634564068e-06
 
+
 class General_ADAPT(UCCVQE):
     def run(
         self,
         algorithm="hot-adapt-vqe",
         pool_type="GSD",
         max_depth=1000,
-        opt_thresh=1e-16, 
+        opt_thresh=1e-16,
         restart_file=False,
         verbose=True,
-        T=0, 
-        weights=None
+        T=0,
+        weights=None,
     ):
         """
         algorithm, string: Choices are adapt-vqe, more-adapt-vqe, and hot-adapt-vqe
-        pool_type, string: operators in pool        
+        pool_type, string: operators in pool
         max_depth, int: Maximum number of operators to use in ansatz
         opt_thresh, float: gtol in bfgs
         restart_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from
         verbose, bool: Print more detailed output than necessary?
-        T, float: Temperature, only needed for HOT-ADAPT-VQE 
+        T, float: Temperature, only needed for HOT-ADAPT-VQE
         weights: Fixed ensemble weights, only needed for MORE-ADAPT-VQE
         """
         self.algorithm = algorithm
@@ -48,7 +49,7 @@ class General_ADAPT(UCCVQE):
         print(f"{algorithm.upper()}".center(100))
         print("*" * 100)
         print("\n", flush=True)
-        
+
         if algorithm == "more-adapt-vqe":
             self.coupling = False
             self.T = 0
@@ -60,10 +61,10 @@ class General_ADAPT(UCCVQE):
             if self.T != 0 and self.T != "Inf":
                 self.beta = 1 / (kb * self.T)
             if restart_file != False:
-                self.parse_existing_hot_adapt_vqe_file(restart_file)    
+                self.parse_existing_hot_adapt_vqe_file(restart_file)
         else:
             return NotImplementedError("Invalid choice of algorithm.")
-        return self.run_hot_adapt_vqe() 
+        return self.run_hot_adapt_vqe()
 
     def run_hot_adapt_vqe(self):
         self.compute_F(self._tamps)
@@ -91,11 +92,14 @@ class General_ADAPT(UCCVQE):
                 print(f"Operator {idx[-1]} has max gradient {op_grads[idx[-1]]}:")
 
             if len(self._tops) >= self.max_depth:
-                print("Maximum number of operators already reached.", flush = True)
+                print("Maximum number of operators already reached.", flush=True)
                 return self.U, self.S, self.F
 
             if len(self._tops) != 0 and self._tops[-1] == idx[-1]:
-                print(f"HOT-ADAPT-VQE is stuck on the same operator. Aborting.", flush = True)
+                print(
+                    f"HOT-ADAPT-VQE is stuck on the same operator. Aborting.",
+                    flush=True,
+                )
                 return self.U, self.S, self.F
 
             self._tops.append(idx[-1])
@@ -107,7 +111,7 @@ class General_ADAPT(UCCVQE):
         self.vqe_iter = 0
         print(f"HOT-VQE Iter.      Free Energy (Eh)     gnorm")
         while True:
-            
+
             if self.coupling == True:
                 dF_function = self.compute_dF
             else:
@@ -193,26 +197,28 @@ class General_ADAPT(UCCVQE):
         Uvqc = self.build_Uvqc(x)
         for ref in self._ref:
             sigma = qf.Computer(ref)
+            print(type(sigma))
+            print(type(Uvqc))
             sigma.apply_circuit(Uvqc)
             kets.append(sigma.get_coeff_vec())
             sigma.apply_operator(self._qb_ham)
             sigmas.append(sigma.get_coeff_vec())
         sigmas = np.array(sigmas).real
         kets = np.array(kets).real
-        H_eff = sigmas@kets.T
+        H_eff = sigmas @ kets.T
         return H_eff
-    
+
     def compute_uncoupled_Es(self, x):
         Uvqc = self.build_Uvqc(x)
-        w = np.zeros(len(self._ref)) 
+        w = np.zeros(len(self._ref))
         for i in range(len(self._ref)):
             sigma = qf.Computer(self._ref[i])
             sigma.apply_circuit(Uvqc)
-            ket = np.array(sigma.get_coeff_vec()) 
+            ket = np.array(sigma.get_coeff_vec())
             sigma.apply_operator(self._qb_ham)
-            w[i] = np.array(sigma.get_coeff_vec()).T.real@ket.real
+            w[i] = np.array(sigma.get_coeff_vec()).T.real @ ket.real
         return w
-    
+
     def compute_spins(self, x):
         Sz_sigmas = []
         S2_sigmas = []
@@ -232,7 +238,7 @@ class General_ADAPT(UCCVQE):
         kets = np.array(kets).real
         Sz_eff = Sz_sigma @ kets.T
         S2_eff = S2_sigma @ kets.T
-        
+
         if self.coupling == True:
             Sz_eff = self.C.T @ Sz_eff @ self.C
             S2_eff = self.C.T @ S2_eff @ self.C
@@ -272,7 +278,7 @@ class General_ADAPT(UCCVQE):
 
         return dF
 
-    def compute_dF(self, x):    
+    def compute_dF(self, x):
         F = self.compute_F(x)
         # We need to build dH[j,k,mu] = derivative of <j|U'HU|k> w.r.t theta_mu
         alphas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
@@ -313,7 +319,7 @@ class General_ADAPT(UCCVQE):
             Kmu.mult_coeffs(self._pool_obj[mu][0])
             Kmus.append(Kmu)
         dH = np.zeros(len(self._pool_obj))
-        
+
         if self._state_prep_type == "computer":
             for i, ref in enumerate(self._ref):
                 sigma = qf.Computer(ref)
@@ -323,18 +329,21 @@ class General_ADAPT(UCCVQE):
                 for k, K in enumerate(Kmus):
                     atemp = qf.Computer(alpha)
                     atemp.apply_operator(K)
-                    dH[k] += self.p[i]*np.array(atemp.get_coeff_vec()).T.real@np.array(sigma.get_coeff_vec()).real
-        print(self._pool_obj)
-        assert 0 == 1 
+                    dH[k] += (
+                        2
+                        * self.p[i]
+                        * np.array(atemp.get_coeff_vec()).T.real
+                        @ np.array(sigma.get_coeff_vec()).real
+                    )
         self.dF_norm = np.linalg.norm(dH)
         return dH
-     
+
     def compute_uncoupled_dF(self, x):
         F = self.compute_F(x)
         Uvqc = self.build_Uvqc(x)
         Kmus, Umus = self.get_gradient_components(x)
         dH = np.zeros(len(x))
-        for i, ref in enumerate(self._ref):        
+        for i, ref in enumerate(self._ref):
             alpha = qf.Computer(ref)
             alpha.apply_circuit(Uvqc)
             sigma = qf.Computer(alpha)
@@ -342,16 +351,21 @@ class General_ADAPT(UCCVQE):
             for j in range(len(self._tamps)):
                 atemp = qf.Computer(alpha)
                 atemp.apply_operator(Kmus[-j - 1])
-                dH[j] += self.p[i]*np.array(atemp.get_coeff_vec()).T.real@np.array(sigma.get_coeff_vec()).real
-                if i != len(self._ref) - 1:
+                dH[-j - 1] += (
+                    2
+                    * self.p[i]
+                    * np.array(atemp.get_coeff_vec()).T.real
+                    @ np.array(sigma.get_coeff_vec()).real
+                )
+                if j != len(self._tamps) - 1:
                     sigma.apply_circuit(Umus[-j - 1])
                     alpha.apply_circuit(Umus[-j - 1])
         return F, dH
-    
+
     def get_gradient_components(self, x):
-        #A-A'
+        # A-A'
         Kmus = []
-        #exp(t(A-A'))
+        # exp(t(A-A'))
         Umus = []
         for mu, t in enumerate(x):
             Kmu = self._pool_obj[self._tops[mu]][1].jw_transform(
