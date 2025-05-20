@@ -13,6 +13,7 @@ from qforte import Computer
 import copy
 import os
 import numpy as np
+import scipy
 import psi4
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -356,11 +357,31 @@ class TestMOREADAPTVQE:
             weights=[0.25] * 4,
             verbose=True,
         )
+
+        h = 1e-6
+
         alg.coupling = True
         alg.compute_F(alg._tamps)
         for i in range(4):
             print(i)
             assert correct_Es[i] == approx(alg.w[i])
+
+        alg._tamps = np.array([0.5, 0.75, 1])
+
+        alg.compute_F(alg._tamps)
+        dF_numerical = scipy.optimize.approx_fprime(
+            alg._tamps, alg.compute_F, epsilon=h
+        )
+        dF_analytical = alg.compute_dF(alg._tamps)[1]
+        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs=1e-6)
+
+        alg.coupling = False
+        alg.compute_F(alg._tamps)
+        dF_numerical = scipy.optimize.approx_fprime(
+            alg._tamps, alg.compute_F, epsilon=h
+        )
+        dF_analytical = alg.compute_uncoupled_dF(alg._tamps)[1]
+        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs=1e-6)
 
         circ_refs = []
 
