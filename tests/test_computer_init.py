@@ -31,11 +31,11 @@ class TestComputerInit:
         computer.set_coeff_vec(coeff_vec)
 
         # Analytic and fin dif gradients agree
-        #analytic = UCCNVQE(mol, reference=computer, state_prep_type="computer")
-        #analytic.run(use_analytic_grad=False, pool_type="GSD")
-        #findif = UCCNVQE(mol, reference=computer, state_prep_type="computer")
-        #findif.run(use_analytic_grad=True, pool_type="GSD")
-        #assert analytic.get_gs_energy() == approx(findif.get_gs_energy(), abs=1.0e-8)
+        # analytic = UCCNVQE(mol, reference=computer, state_prep_type="computer")
+        # analytic.run(use_analytic_grad=False, pool_type="GSD")
+        # findif = UCCNVQE(mol, reference=computer, state_prep_type="computer")
+        # findif.run(use_analytic_grad=True, pool_type="GSD")
+        # assert analytic.get_gs_energy() == approx(findif.get_gs_energy(), abs=1.0e-8)
 
         # Computer-based and non-compute based agree
         hf = ADAPTVQE(mol)

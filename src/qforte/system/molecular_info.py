@@ -35,7 +35,10 @@ class System(object):
 
     @property
     def hf_reference(self):
-        return self._hf_reference
+        try:
+            return self._hf_reference
+        except:
+            return None
 
     @hf_reference.setter
     def hf_reference(self, hf_reference):
@@ -43,7 +46,7 @@ class System(object):
 
 
 class Molecule(System):
-    """Class for storing moleucular information. Should be instatiated using using
+    """Class for storing molecular information. Should be instatiated using using
     a MolAdapter and populated by calling MolAdapter.run(**kwargs).
 
 

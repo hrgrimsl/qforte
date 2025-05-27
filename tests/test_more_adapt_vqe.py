@@ -247,13 +247,13 @@ class TestMOREADAPTVQE:
             reference=computers,
             compact_excitations=True,
             state_prep_type="computer",
+            weights=[0.6, 0.4],
         )
 
         alg.run(
             pool_type="GSD",
             algorithm="more-adapt-vqe",
             max_depth=30,
-            weights=[0.6, 0.4],
             verbose=True,
         )
         alg.coupling = True
@@ -348,13 +348,13 @@ class TestMOREADAPTVQE:
             reference=comp_refs,
             compact_excitations=True,
             state_prep_type="computer",
+            weights=[0.25] * 4,
         )
 
         alg.run(
             pool_type="GSD",
             algorithm="more-adapt-vqe",
             max_depth=3,
-            weights=[0.25] * 4,
             verbose=True,
         )
 

@@ -22,7 +22,6 @@ class General_ADAPT(UCCVQE):
         restart_file=False,
         verbose=True,
         T=0,
-        weights=None,
     ):
         """
         algorithm, string: Choices are adapt-vqe, more-adapt-vqe, and hot-adapt-vqe
@@ -32,7 +31,6 @@ class General_ADAPT(UCCVQE):
         restart_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from
         verbose, bool: Print more detailed output than necessary?
         T, float: Temperature, only needed for HOT-ADAPT-VQE
-        weights: Fixed ensemble weights, only needed for MORE-ADAPT-VQE
         """
         self.algorithm = algorithm
         self.max_depth = max_depth
@@ -53,7 +51,7 @@ class General_ADAPT(UCCVQE):
         if algorithm == "more-adapt-vqe":
             self.coupling = False
             self.T = 0
-            self.p = np.array(weights)
+            self.p = np.array(self._weights)
             self.beta = 0
         elif algorithm == "hot-adapt-vqe":
             self.coupling = True
@@ -167,6 +165,7 @@ class General_ADAPT(UCCVQE):
         print("\n")
 
     def compute_F(self, x):
+
         if self._state_prep_type == "computer":
             if self.coupling == True:
                 H_eff = self.compute_H_eff(x)
@@ -182,6 +181,7 @@ class General_ADAPT(UCCVQE):
             Z = np.sum(q)
             if self.algorithm == "hot-adapt-vqe":
                 self.p = q / Z
+
             self.U = self.w.T @ self.p
             plogp = np.array([p * np.log(p) if p > 0 else 0 for p in self.p])
             self.S = -np.sum(plogp)

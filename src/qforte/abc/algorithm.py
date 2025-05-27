@@ -77,14 +77,14 @@ class Algorithm(ABC):
         if isinstance(self, qf.QPE) and hasattr(system, "frozen_core"):
             if system.frozen_core + system.frozen_virtual > 0:
                 raise ValueError("QPE with frozen orbitals is not currently supported.")
-
+        self._hf_reference = system.hf_reference
         self._sys = system
         self._state_prep_type = state_prep_type
         self._is_multi_state = is_multi_state
-
+        self._weights = weights
         if not self._is_multi_state:
             if self._state_prep_type == "occupation_list":
-                if reference is None:
+                if reference == None:
                     reference = system.hf_reference
                 if not (isinstance(reference, list)):
                     raise ValueError(
@@ -96,12 +96,13 @@ class Algorithm(ABC):
                             "occupation_list reference must be list of 1s and 0s."
                         )
                 self._ref = reference
-                self._nqb = len(system.hf_reference)
 
                 self._refprep = qforte.build_refprep(self._ref)
                 self._Uprep = qf.Circuit(self._refprep)
-                
-
+                if isinstance(self._ref[0], int):
+                    self._nqb = len(self._ref)
+                else:
+                    self._nqb = len(self._ref[0])
             elif self._state_prep_type == "unitary_circ":
                 if not isinstance(reference, qf.Circuit):
                     raise ValueError("unitary_circ reference must be a Circuit.")
@@ -109,9 +110,10 @@ class Algorithm(ABC):
                 self._ref = system.hf_reference
                 self._refprep = build_refprep(self._ref)
                 self._Uprep = reference
-                self._nqb = len(system.hf_reference)
+                self._nqb = len(self._hf_reference)
 
             elif self._state_prep_type == "computer":
+
                 if not isinstance(reference, qf.Computer):
                     if not isinstance(reference[0], qf.Computer):
                         raise ValueError("computer reference must be a Computer.")
@@ -126,14 +128,13 @@ class Algorithm(ABC):
                 ):
                     raise ValueError("Class cannot be initialized with a computer.")
 
-                
                 self._ref = reference
                 if isinstance(self._ref, list):
                     self._nqb = (len(self._ref[0].get_coeff_vec())).bit_length() - 1
-                    self._Uprep = [qf.Circuit()]*len(self._ref)
                 else:
-                    self._nqb = (len(self._ref.get_coeff_vec())).bit_length() - 1 
-                    self._Uprep = qf.Circuit()
+                    self._nqb = (len(self._ref.get_coeff_vec())).bit_length() - 1
+                self._refprep = qf.Circuit()
+                self._Uprep = qf.Circuit()
                 self.computer = reference
 
             else:
@@ -142,13 +143,6 @@ class Algorithm(ABC):
                 )
 
         else:
-            try:
-                assert weights != None
-                self._weights = weights
-            except:
-                print("Assuming equal weights.")
-                self._weights = [1 / len(reference)] * len(reference)
-
             if self._state_prep_type == "occupation_list":
                 if reference == None:
                     self._ref = [system.hf_reference]
@@ -169,7 +163,7 @@ class Algorithm(ABC):
                                     "Ill-constructed reference.  Should take form [[0,0,1,1], [1,1,0,0] ...]"
                                 )
                         self._ref.append(ref)
-
+                self._nqb = len(self._ref[0])
                 self._refprep = []
                 self._Uprep = []
                 for ref in self._ref:
@@ -256,6 +250,7 @@ class Algorithm(ABC):
         self._n_classical_params = None
         self._n_cnot = None
         self._n_pauli_trm_measures = None
+        print(self._nqb)
 
     @abstractmethod
     def print_options_banner(self):
@@ -415,7 +410,7 @@ class AnsatzAlgorithm(Algorithm):
 
     def fill_pool(self):
         """This function populates an operator pool with SQOperator objects."""
-        if not isinstance(self._ref, list) or self._ref[0] in [0,1]:
+        if not self._is_multi_state and self._state_prep_type != "computer":
             if self._pool_type in {
                 "sa_SD",
                 "GSD",
@@ -425,30 +420,19 @@ class AnsatzAlgorithm(Algorithm):
                 "SDTQP",
                 "SDTQPH",
             }:
-                if self._state_prep_type == "occupation_list":
-                    self._pool_obj = qf.SQOpPool()
-                    if hasattr(self._sys, "orb_irreps_to_int"):
-                        self._pool_obj.set_orb_spaces(
-                            self._ref, self._sys.orb_irreps_to_int
-                        )
-                    else:
-                        self._pool_obj.set_orb_spaces(self._ref)
-                    self._pool_obj.fill_pool(self._pool_type)
+                self._pool_obj = qf.SQOpPool()
+                if hasattr(self._sys, "orb_irreps_to_int"):
+                    self._pool_obj.set_orb_spaces(
+                        self._ref, self._sys.orb_irreps_to_int
+                    )
                 else:
-                    dummy = [0] * self._nqb
-                    self._pool_obj = qf.SQOpPool()
-                    if hasattr(self._sys, "orb_irreps_to_int"):
-                        self._pool_obj.set_orb_spaces(dummy, self._sys.orb_irreps_to_int)
-                    else:
-                        self._pool_obj.set_orb_spaces(dummy)
-                    self._pool_obj.fill_pool(self._pool_type)            
-
+                    self._pool_obj.set_orb_spaces(self._ref)
+                self._pool_obj.fill_pool(self._pool_type)
             elif isinstance(self._pool_type, qf.SQOpPool):
                 self._pool_obj = self._pool_type
-            
         else:
             # Only GSD is well-defined for multiple references.
-            if self._state_prep_type != "occupation_list":
+            if self._pool_type in {"GSD", "SFGSD"}:
                 # o/v spaces are not well-defined: passing dummy state
                 dummy = [0] * self._nqb
                 self._pool_obj = qf.SQOpPool()
@@ -456,20 +440,15 @@ class AnsatzAlgorithm(Algorithm):
                     self._pool_obj.set_orb_spaces(dummy, self._sys.orb_irreps_to_int)
                 else:
                     self._pool_obj.set_orb_spaces(dummy)
-                self._pool_obj.fill_pool(self._pool_type)            
-            
+                self._pool_obj.fill_pool(self._pool_type)
+
             else:
-                self._pool_obj = qf.SQOpPool()
-                if hasattr(self._sys, "orb_irreps_to_int"):
-                    self._pool_obj.set_orb_spaces(dummy, self._sys.orb_irreps_to_int)
-                else:
-                    self._pool_obj.set_orb_spaces(dummy)
-                self._pool_obj.fill_pool(self._pool_type)            
-            
+                raise ValueError("Only GSD is well-defined for multiple references.")
+
         self._Nm = [
             len(operator.jw_transform().terms()) for _, operator in self._pool_obj
         ]
-        
+
     def measure_energy(self, Ucirc, computer=None):
         """
         This function returns the energy expectation value of the state
