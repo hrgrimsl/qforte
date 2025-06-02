@@ -46,13 +46,12 @@ class TestMOREADAPTVQE:
             is_multi_state=True,
             references=refs,
             compact_excitations=True,
-
         )
 
         H = sq_op_to_scipy(mol.sq_hamiltonian, alg._nqb, Sz=0, N=2).todense()
 
         w, v = np.linalg.eigh(H)
-
+        full_w = w
         non_degens = [0, 1, 2, 7, 8, 15]
         w = w[non_degens]
         v = v[:, non_degens]
@@ -64,23 +63,26 @@ class TestMOREADAPTVQE:
         alg.run(
             pool_type="GSD",
             opt_thresh=1e-10,
-            max_depth=1,
+            max_depth=0,
             algorithm="more-adapt-vqe",
-            weights = weights
+            weights = weights,
+            pool_ref = refs[0]
         )
 
         U = alg.build_Uvqc(amplitudes=alg._tamps)
 
         Es, A, ops = ritz_eigh(
-            alg._nqb, mol.hamiltonian, U, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
+             mol.hamiltonian, U, alg._ref, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
         )
         dip_x, dip_y, dip_z = ops
+
 
         Es = Es[non_degens]
 
         for i in range(len(Es)):
             assert Es[i] == approx(w[i], abs=1.0e-10)
 
+        
         total_dip = np.zeros(dip_x.shape)
         for op in [dip_x, dip_y, dip_z]:
             total_dip += np.multiply(op.conj(), op).real
@@ -101,12 +103,12 @@ class TestMOREADAPTVQE:
             for j in range(len(Es)):
                 assert dip_dir[i, j] - total_dip[i, j] == approx(0.0, abs=1e-10)
 
+
         circ_refs = [build_refprep(ref) for ref in refs]
 
         alg = General_ADAPT(
             mol,
             print_summary_file=False,
-            is_multi_state=True,
             references = circ_refs,
             compact_excitations=True,
         )
@@ -122,13 +124,17 @@ class TestMOREADAPTVQE:
         U = alg.build_Uvqc(amplitudes=alg._tamps)
 
         Es, A, ops = ritz_eigh(
-            alg._nqb, mol.hamiltonian, U, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
+            mol.hamiltonian, U, alg._ref, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
         )
         dip_x, dip_y, dip_z = ops
+        
         Es = Es[non_degens]
 
         for i in range(len(Es)):
+            print(Es[i])
+            print(w[i])
             assert Es[i] == approx(w[i], abs=1.0e-10)
+
 
         total_dip = np.zeros(dip_x.shape)
         for op in [dip_x, dip_y, dip_z]:
@@ -136,9 +142,11 @@ class TestMOREADAPTVQE:
         total_dip = np.sqrt(total_dip)
         total_dip = total_dip[np.ix_(non_degens, non_degens)]
 
+
         for i in range(len(Es)):
             for j in range(len(Es)):
                 assert dip_dir[i, j] - total_dip[i, j] == approx(0.0, abs=1e-10)
+
 
         alg = General_ADAPT(
             mol,
@@ -152,16 +160,15 @@ class TestMOREADAPTVQE:
             pool_type="GSD",
             opt_thresh=1e-10,
             max_depth=1,
-            tamps=[],
-            tops=[],
             algorithm="more-adapt-vqe",
             weights=weights,
         )
-
+        alg._tamps = []
+        alg._tops = []
         U = alg.build_Uvqc(amplitudes=alg._tamps)
 
         Es, A, ops = ritz_eigh(
-            alg._nqb, mol.hamiltonian, U, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
+            mol.hamiltonian, U, alg._ref, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
         )
         dip_x, dip_y, dip_z = ops
 
@@ -199,24 +206,22 @@ class TestMOREADAPTVQE:
             pool_type="GSD",
             opt_thresh=1e-10,
             max_depth=30,
-            tamps=[],
-            tops=[],
             algorithm="more-adapt-vqe",
             weights=weights,
         )
 
-        Uvqc = alg.build_Uvqc(amplitudes=alg._tamps)[0]
+        Uvqc = alg.build_Uvqc(amplitudes=alg._tamps)
         H_eff = build_effective_array(
-            mol.hamiltonian, Uvqc, alg.get_initial_computer()
+            mol.hamiltonian, Uvqc, alg._ref
         ).real
         dip_x_eff = build_effective_array(
-            mol.dipole_x, Uvqc, alg.get_initial_computer()
+            mol.dipole_x, Uvqc, alg._ref
         ).real
         dip_y_eff = build_effective_array(
-            mol.dipole_y, Uvqc, alg.get_initial_computer()
+            mol.dipole_y, Uvqc, alg._ref
         ).real
         dip_z_eff = build_effective_array(
-            mol.dipole_z, Uvqc, alg.get_initial_computer()
+            mol.dipole_z, Uvqc, alg._ref
         ).real
 
         E_more, C_more = np.linalg.eigh(H_eff)

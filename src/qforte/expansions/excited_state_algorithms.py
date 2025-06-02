@@ -45,27 +45,23 @@ def q_sc_eom(n_qubit, H, U_ref, U_manifold, ops_to_compute=[]):
     return [E0] + list(Ek), A_plus_ref, op_mats
 
 
-def ritz_eigh(n_qubit, H, U, ops_to_compute=[]):
+def ritz_eigh(H, U, refs, ops_to_compute=[]):
     """
     Obtains the ritz eigenvalues of H in the space of {U|i>}
-
     H is a qubit operator
-    U is a list of unitaries
+    U is a circuit
     ops_to_compute is a list of JW-transformed operators
-    We will convert all of them into numpy arrays in the basis of {U_i|0>}.
     """
-    M = qforte.build_effective_symmetric_operator(n_qubit, H, U)
+    M = qforte.build_effective_symmetric_operator(H, U, refs)
 
     Ek, A = np.linalg.eigh(M)
     print("Ritz Diagonalization:")
     print(f"State:  Post-Diagonalized Energy")
-    for i, E in enumerate(Ek):
-        print(f"{(i+1):5}{E:35.16f}")
-
+    
     op_mats = []
 
     for op in ops_to_compute:
-        op_vqe_basis = qforte.build_effective_symmetric_operator(n_qubit, op, U)
+        op_vqe_basis = qforte.build_effective_symmetric_operator(op, U, refs)
         op_ritz_basis = A.T.conj() @ op_vqe_basis @ A
         op_mats.append(op_ritz_basis)
 

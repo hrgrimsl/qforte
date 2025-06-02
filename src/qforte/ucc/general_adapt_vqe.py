@@ -22,6 +22,7 @@ class General_ADAPT(UCCVQE):
         weights = None,
         restart_file=False,
         verbose=True,
+        pool_ref = None,
         T=0,
     ):
         """
@@ -43,7 +44,7 @@ class General_ADAPT(UCCVQE):
         self._pool_type = pool_type
         self._compact_excitations = True
         self.verbose = verbose
-        self.fill_pool()
+        self.fill_pool(det = pool_ref)
 
         print("\n")
         print("*" * 100)

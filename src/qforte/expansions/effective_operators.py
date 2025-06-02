@@ -3,25 +3,35 @@ Tools for building and diagonalizing operators in subspaces obtained by methods 
 """
 
 import numpy as np
-from qforte.utils.compute_matrix_element import compute_operator_matrix_element
+import qforte as qf
 
-
-def build_effective_symmetric_operator(n_qubit, qb_op, Us):
+def build_effective_symmetric_operator(qb_op, U, refs):
     """
     qb_op is a qubit operator (e.g. a Hamiltonian, S^2, dipole operator)
-    Us is a list of circuits to prepare a set of basis states.
-
+    U is a circuit, and refs are the Computer refs it acts on.
     A dense np array will be constructed in the space of those basis states.
-
-    TODO: Add a Hadamard test implementation for noise/gate count analysis
     """
 
-    dim = len(Us)
+    for i in range(len(refs)):
+        print(f"Ref {i}")
+        print(refs[i])
+
+    dim = len(refs)
     eff_op = np.zeros((dim, dim), dtype="complex")
+    vs = []
 
     for i in range(dim):
-        for j in range(i, dim):
-            val = compute_operator_matrix_element(n_qubit, Us[j], Us[i], qb_op)
-            eff_op[i, j] = eff_op[j, i] = val
+        sigma = qf.Computer(refs[i])
+        sigma.apply_circuit(U)
+        sigma.apply_operator(qb_op)
+        sigma.apply_circuit(U.adjoint())
+        vs.append(np.array(sigma.get_coeff_vec()))
 
-    return eff_op
+    
+    for i in range(dim):
+        for j in range(i, dim):
+            eff_op[i,j] = eff_op[j,i] = np.array(refs[i].get_coeff_vec()).T.conj()@vs[j]
+    
+    print(np.amin(eff_op.real), flush = True)
+    print(np.amax(eff_op.real), flush = True)
+    return eff_op 

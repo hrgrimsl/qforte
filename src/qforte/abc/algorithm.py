@@ -63,25 +63,27 @@ class Algorithm(ABC):
             if system.frozen_core + system.frozen_virtual > 0:
                 raise ValueError("QPE with frozen orbitals is not currently supported.")
         self._sys = system
-        
+
+
         if isinstance(references, qf.Computer):
             references = [references]
         elif isinstance(references, qf.Circuit):
-            qftemp = qf.Computer()
+            qftemp = qf.Computer(2*len(system.orb_irreps_to_int))
             qftemp.apply_circuit(references) 
             references = [qftemp]
         elif isinstance(references, list):
             if isinstance(references[0], qf.Circuit):
                 ref_temp = []
                 for ref in references:
-                    qftemp = qf.Computer()
+                    print(system.orb_irreps_to_int)
+                    qftemp = qf.Computer(2*len(system.orb_irreps_to_int))
                     qftemp.apply_circuit(ref) 
-                    ref_temp.apply(qftemp)
-            
+                    ref_temp.append(qftemp)
+                references = ref_temp
             elif isinstance(references[0], int):
                 idx = int("".join(map(str, references)), 2)
                 vec = np.zeros(2 ** len(references), dtype=complex)
-                print(len(vec))
+                
                 vec[idx] = 1.0
                 comp = qf.Computer(bit_len)
                 comp.set_coeff_vec(vec)
