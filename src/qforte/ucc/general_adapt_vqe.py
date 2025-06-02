@@ -19,6 +19,7 @@ class General_ADAPT(UCCVQE):
         pool_type="GSD",
         max_depth=1000,
         opt_thresh=1e-16,
+        weights = None,
         restart_file=False,
         verbose=True,
         T=0,
@@ -28,6 +29,7 @@ class General_ADAPT(UCCVQE):
         pool_type, string: operators in pool
         max_depth, int: Maximum number of operators to use in ansatz
         opt_thresh, float: gtol in bfgs
+        weights, list of floats: Used in MORE-ADAPT-VQE
         restart_file, bool/string: Gives another Gibbs-ADAPT-VQE calculation to restart from
         verbose, bool: Print more detailed output than necessary?
         T, float: Temperature, only needed for HOT-ADAPT-VQE
@@ -35,6 +37,7 @@ class General_ADAPT(UCCVQE):
         self.algorithm = algorithm
         self.max_depth = max_depth
         self.opt_thresh = opt_thresh
+        self._weights = weights
         self.Sz = qf.total_spin_z(self._nqb)
         self.S2 = qf.total_spin_squared(self._nqb)
         self._pool_type = pool_type
@@ -165,31 +168,29 @@ class General_ADAPT(UCCVQE):
         print("\n")
 
     def compute_F(self, x):
+        if self.coupling == True:
+            H_eff = self.compute_H_eff(x)
+            self.w, self.C = np.linalg.eigh(H_eff)
+        else:
+            self.w = self.compute_uncoupled_Es(x)
 
-        if self._state_prep_type == "computer":
-            if self.coupling == True:
-                H_eff = self.compute_H_eff(x)
-                self.w, self.C = np.linalg.eigh(H_eff)
-            else:
-                self.w = self.compute_uncoupled_Es(x)
+        if self.T == 0:
+            q = np.zeros(len(self.w))
+            q[0] = 1
+        else:
+            q = np.exp(-self.beta * (self.w - self.w[0]))
+        Z = np.sum(q)
+        if self.algorithm == "hot-adapt-vqe":
+            self.p = q / Z
 
-            if self.T == 0:
-                q = np.zeros(len(self.w))
-                q[0] = 1
-            else:
-                q = np.exp(-self.beta * (self.w - self.w[0]))
-            Z = np.sum(q)
-            if self.algorithm == "hot-adapt-vqe":
-                self.p = q / Z
-
-            self.U = self.w.T @ self.p
-            plogp = np.array([p * np.log(p) if p > 0 else 0 for p in self.p])
-            self.S = -np.sum(plogp)
-            if self.beta != 0:
-                self.F = self.U - (1 / self.beta) * self.S
-            else:
-                self.F = self.U
-            return self.F
+        self.U = self.w.T @ self.p
+        plogp = np.array([p * np.log(p) if p > 0 else 0 for p in self.p])
+        self.S = -np.sum(plogp)
+        if self.beta != 0:
+            self.F = self.U - (1 / self.beta) * self.S
+        else:
+            self.F = self.U
+        return self.F
 
     def compute_H_eff(self, x):
         sigmas = []
@@ -256,20 +257,20 @@ class General_ADAPT(UCCVQE):
             Kmu.mult_coeffs(self._pool_obj[mu][0])
             Kmus.append(Kmu)
 
-        if self._state_prep_type == "computer":
-            for i, ref in enumerate(self._ref):
-                sigma = qf.Computer(ref)
-                sigma.apply_circuit(Uvqc)
-                sigma.apply_operator(self._qb_ham)
-                sigmas[i, :] = np.array(sigma.get_coeff_vec()).real
+        
+        for i, ref in enumerate(self._ref):
+            sigma = qf.Computer(ref)
+            sigma.apply_circuit(Uvqc)
+            sigma.apply_operator(self._qb_ham)
+            sigmas[i, :] = np.array(sigma.get_coeff_vec()).real
 
-            for i, ref in enumerate(self._ref):
-                alpha = qf.Computer(ref)
-                alpha.apply_circuit(Uvqc)
-                for j in range(len(Kmus)):
-                    atemp = qf.Computer(alpha)
-                    atemp.apply_operator(Kmus[j])
-                    alphas[i, j, :] = np.array(atemp.get_coeff_vec()).real
+        for i, ref in enumerate(self._ref):
+            alpha = qf.Computer(ref)
+            alpha.apply_circuit(Uvqc)
+            for j in range(len(Kmus)):
+                atemp = qf.Computer(alpha)
+                atemp.apply_operator(Kmus[j])
+                alphas[i, j, :] = np.array(atemp.get_coeff_vec()).real
 
         dH = np.einsum("iv,juv->iju", sigmas, alphas)
         dH += np.einsum("jv,iuv->iju", sigmas, alphas)
@@ -285,23 +286,23 @@ class General_ADAPT(UCCVQE):
         sigmas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
         Uvqc = self.build_Uvqc(x)
         Kmus, Umus = self.get_gradient_components(x)
-        if self._state_prep_type == "computer":
-            for i, ref in enumerate(self._ref):
-                sigma = qf.Computer(ref)
-                sigma.apply_circuit(Uvqc)
-                sigma.apply_operator(self._qb_ham)
-                for j in range(len(self._tamps)):
-                    sigmas[i, -j - 1, :] = np.array(sigma.get_coeff_vec()).real
-                    sigma.apply_circuit(Umus[-j - 1])
+        
+        for i, ref in enumerate(self._ref):
+            sigma = qf.Computer(ref)
+            sigma.apply_circuit(Uvqc)
+            sigma.apply_operator(self._qb_ham)
+            for j in range(len(self._tamps)):
+                sigmas[i, -j - 1, :] = np.array(sigma.get_coeff_vec()).real
+                sigma.apply_circuit(Umus[-j - 1])
 
-            for i, ref in enumerate(self._ref):
-                alpha = qf.Computer(ref)
-                alpha.apply_circuit(Uvqc)
-                for j in range(len(self._tamps)):
-                    atemp = qf.Computer(alpha)
-                    atemp.apply_operator(Kmus[-j - 1])
-                    alphas[i, -j - 1, :] = np.array(atemp.get_coeff_vec()).real
-                    alpha.apply_circuit(Umus[-j - 1])
+        for i, ref in enumerate(self._ref):
+            alpha = qf.Computer(ref)
+            alpha.apply_circuit(Uvqc)
+            for j in range(len(self._tamps)):
+                atemp = qf.Computer(alpha)
+                atemp.apply_operator(Kmus[-j - 1])
+                alphas[i, -j - 1, :] = np.array(atemp.get_coeff_vec()).real
+                alpha.apply_circuit(Umus[-j - 1])
 
         dH = np.einsum("iuv,juv->iju", sigmas, alphas)
         dH += np.einsum("juv,iuv->iju", sigmas, alphas)
@@ -320,21 +321,21 @@ class General_ADAPT(UCCVQE):
             Kmus.append(Kmu)
         dH = np.zeros(len(self._pool_obj))
 
-        if self._state_prep_type == "computer":
-            for i, ref in enumerate(self._ref):
-                sigma = qf.Computer(ref)
-                sigma.apply_circuit(Uvqc)
-                alpha = qf.Computer(sigma)
-                sigma.apply_operator(self._qb_ham)
-                for k, K in enumerate(Kmus):
-                    atemp = qf.Computer(alpha)
-                    atemp.apply_operator(K)
-                    dH[k] += (
-                        2
-                        * self.p[i]
-                        * np.array(atemp.get_coeff_vec()).T.real
-                        @ np.array(sigma.get_coeff_vec()).real
-                    )
+        
+        for i, ref in enumerate(self._ref):
+            sigma = qf.Computer(ref)
+            sigma.apply_circuit(Uvqc)
+            alpha = qf.Computer(sigma)
+            sigma.apply_operator(self._qb_ham)
+            for k, K in enumerate(Kmus):
+                atemp = qf.Computer(alpha)
+                atemp.apply_operator(K)
+                dH[k] += (
+                    2
+                    * self.p[i]
+                    * np.array(atemp.get_coeff_vec()).T.real
+                    @ np.array(sigma.get_coeff_vec()).real
+                )
         self.dF_norm = np.linalg.norm(dH)
         return dH
 

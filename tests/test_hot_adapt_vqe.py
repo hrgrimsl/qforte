@@ -38,7 +38,7 @@ class TestHOTADAPTVQE:
             qc.set_coeff_vec(v1)
             refs.append(qc)
 
-        alg = qf.General_ADAPT(mol, state_prep_type="computer", reference=refs)
+        alg = qf.General_ADAPT(mol, state_prep_type="computer", references=refs)
 
         U, S, F = alg.run(
             pool_type="GSD",

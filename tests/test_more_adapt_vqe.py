@@ -1,5 +1,4 @@
 from pytest import approx
-from qforte import ADAPTVQE
 from qforte import General_ADAPT
 from qforte import system_factory
 from qforte import sq_op_to_scipy
@@ -41,13 +40,13 @@ class TestMOREADAPTVQE:
         weights = [2 ** (-i - 1) for i in range(len(refs))]
         weights[-1] += 2 ** (-len(weights))
 
-        alg = ADAPTVQE(
+        alg = General_ADAPT(
             mol,
             print_summary_file=False,
             is_multi_state=True,
-            reference=refs,
-            weights=weights,
+            references=refs,
             compact_excitations=True,
+
         )
 
         H = sq_op_to_scipy(mol.sq_hamiltonian, alg._nqb, Sz=0, N=2).todense()
@@ -63,11 +62,11 @@ class TestMOREADAPTVQE:
         dip_z_arr = sq_op_to_scipy(mol.sq_dipole_z, alg._nqb).todense()
 
         alg.run(
-            avqe_thresh=1e-12,
             pool_type="GSD",
             opt_thresh=1e-10,
-            opt_maxiter=1000,
-            adapt_maxiter=1,
+            max_depth=1,
+            algorithm="more-adapt-vqe",
+            weights = weights
         )
 
         U = alg.build_Uvqc(amplitudes=alg._tamps)
@@ -104,22 +103,20 @@ class TestMOREADAPTVQE:
 
         circ_refs = [build_refprep(ref) for ref in refs]
 
-        alg = ADAPTVQE(
+        alg = General_ADAPT(
             mol,
             print_summary_file=False,
             is_multi_state=True,
-            reference=circ_refs,
-            weights=weights,
+            references = circ_refs,
             compact_excitations=True,
-            state_prep_type="unitary_circ",
         )
 
         alg.run(
-            avqe_thresh=1e-12,
             pool_type="GSD",
             opt_thresh=1e-10,
-            opt_maxiter=1000,
-            adapt_maxiter=1,
+            max_depth=1,
+            algorithm="more-adapt-vqe",
+            weights = weights
         )
 
         U = alg.build_Uvqc(amplitudes=alg._tamps)
@@ -143,23 +140,22 @@ class TestMOREADAPTVQE:
             for j in range(len(Es)):
                 assert dip_dir[i, j] - total_dip[i, j] == approx(0.0, abs=1e-10)
 
-        alg = ADAPTVQE(
+        alg = General_ADAPT(
             mol,
             print_summary_file=False,
             is_multi_state=True,
-            reference=refs,
-            weights=weights,
+            references = refs,
             compact_excitations=False,
         )
 
         alg.run(
-            avqe_thresh=1e-12,
             pool_type="GSD",
             opt_thresh=1e-10,
-            opt_maxiter=1000,
-            adapt_maxiter=1,
+            max_depth=1,
             tamps=[],
             tops=[],
+            algorithm="more-adapt-vqe",
+            weights=weights,
         )
 
         U = alg.build_Uvqc(amplitudes=alg._tamps)
@@ -191,24 +187,22 @@ class TestMOREADAPTVQE:
         computers[1].set_coeff_vec(refs[1])
         weights = [0.6, 0.4]
 
-        alg = ADAPTVQE(
+        alg = General_ADAPT(
             mol,
             print_summary_file=False,
             is_multi_state=True,
-            reference=computers,
-            weights=weights,
+            references=computers,
             compact_excitations=False,
-            state_prep_type="computer",
         )
 
         alg.run(
-            avqe_thresh=1e-12,
             pool_type="GSD",
             opt_thresh=1e-10,
-            opt_maxiter=1000,
-            adapt_maxiter=30,
+            max_depth=30,
             tamps=[],
             tops=[],
+            algorithm="more-adapt-vqe",
+            weights=weights,
         )
 
         Uvqc = alg.build_Uvqc(amplitudes=alg._tamps)[0]
@@ -244,16 +238,17 @@ class TestMOREADAPTVQE:
 
         alg = General_ADAPT(
             mol,
-            reference=computers,
+            references = computers,
             compact_excitations=True,
             state_prep_type="computer",
-            weights=[0.6, 0.4],
+
         )
 
         alg.run(
             pool_type="GSD",
             algorithm="more-adapt-vqe",
             max_depth=30,
+            weights=[0.6, 0.4],
             verbose=True,
         )
         alg.coupling = True
@@ -284,12 +279,11 @@ class TestMOREADAPTVQE:
             [1, 1, 1, 0, 0, 1] + [0] * 6,
         ]
 
-        alg = ADAPTVQE(
+        alg = General_ADAPT(
             mol,
             print_summary_file=False,
             is_multi_state=True,
-            reference=occ_refs,
-            weights=[0.25] * 4,
+            references = occ_refs,
             compact_excitations=True,
         )
 
@@ -299,7 +293,7 @@ class TestMOREADAPTVQE:
         E_casscf = np.linalg.eigh(H_eff)[0][0]
         assert E_casscf == approx(-7.873605319132174, 1e-8)
 
-        alg.run(pool_type="GSD", adapt_maxiter=3)
+        alg.run(pool_type="GSD", max_depth=3, algorithm="more-adapt-vqe")
 
         correct_Es = [
             -7.8593451680521662,
@@ -333,28 +327,28 @@ class TestMOREADAPTVQE:
             mol,
             print_summary_file=False,
             is_multi_state=True,
-            reference=comp_refs,
-            weights=[0.25] * 4,
+            references = comp_refs,
             compact_excitations=True,
             state_prep_type="computer",
         )
 
-        alg.run(pool_type="GSD", adapt_maxiter=3)
+        alg.run(pool_type="GSD", max_depth=3, weights=[0.25] * 4, algorithm="more-adapt-vqe")
         for i in range(4):
             assert correct_Es[i] == approx(alg._diag_energies[-1][i])
 
         alg = General_ADAPT(
             mol,
-            reference=comp_refs,
+            references=comp_refs,
             compact_excitations=True,
             state_prep_type="computer",
-            weights=[0.25] * 4,
+
         )
 
         alg.run(
             pool_type="GSD",
             algorithm="more-adapt-vqe",
             max_depth=3,
+            weights=[0.25] * 4,
             verbose=True,
         )
 
@@ -390,17 +384,16 @@ class TestMOREADAPTVQE:
         circ_refs.append(build_refprep([1] * 2 + [0, 1, 1, 0] + [0] * 6))
         circ_refs.append(build_refprep([1] * 2 + [1, 0, 0, 1] + [0] * 6))
 
-        alg = ADAPTVQE(
+        alg = General_ADAPT(
             mol,
             print_summary_file=False,
             is_multi_state=True,
-            reference=circ_refs,
-            weights=[0.25] * 4,
+            references = circ_refs,
             compact_excitations=True,
             state_prep_type="unitary_circ",
         )
 
-        alg.run(pool_type="GSD", adapt_maxiter=3)
+        alg.run(pool_type="GSD", max_depth=3, weights=[0.25] * 4, algorithm="more-adapt-vqe")
         for i in range(4):
             assert correct_Es[i] == approx(alg._diag_energies[-1][i])
 
