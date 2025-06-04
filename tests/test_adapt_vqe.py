@@ -24,9 +24,10 @@ class TestADAPTVQE:
             filename=data_path,
         )
 
-        alg = ADAPTVQE(mol, print_summary_file=False)
+        alg = ADAPTVQE(mol, print_summary_file=False, references = [0,0,0,0,1,1,1,1])
 
         alg.run(
+            ref_det = [0,0,0,0,1,1,1,1],
             adapt_maxiter=20,
             avqe_thresh=1.0e-4,
             opt_thresh=1.0e-5,
@@ -67,14 +68,16 @@ class TestADAPTVQE:
         )
 
         jacobi = ADAPTVQE(
-            mol, compact_excitations=True, qubit_excitations=True, diis_max_dim=8
+            mol, compact_excitations=True, qubit_excitations=True, diis_max_dim=8, references = [0,0,0,0,1,1,1,1]
         )
         jacobi.run(
+            ref_det = [0,0,0,0,1,1,1,1],
             optimizer="jacobi", pool_type="GSD", avqe_thresh=0.001, tamps=[], tops=[]
         )
 
         bfgs = ADAPTVQE(mol, compact_excitations=True, qubit_excitations=True)
         bfgs.run(
+            ref_det = [0,0,0,0,1,1,1,1],
             optimizer="BFGS", pool_type="GSD", avqe_thresh=0.001, tamps=[], tops=[]
         )
 

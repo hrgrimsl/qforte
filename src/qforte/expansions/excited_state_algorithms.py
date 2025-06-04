@@ -56,8 +56,9 @@ def ritz_eigh(H, U, refs, ops_to_compute=[]):
 
     Ek, A = np.linalg.eigh(M)
     print("Ritz Diagonalization:")
-    print(f"State:  Post-Diagonalized Energy")
-    
+    print(f"State  Post-Diagonalized Energy")
+    for i in range(len(Ek)):
+        print(f"{i}    {Ek[i]}")
     op_mats = []
 
     for op in ops_to_compute:

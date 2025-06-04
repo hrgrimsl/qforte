@@ -75,12 +75,12 @@ class Algorithm(ABC):
             if isinstance(references[0], qf.Circuit):
                 ref_temp = []
                 for ref in references:
-                    print(system.orb_irreps_to_int)
                     qftemp = qf.Computer(2*len(system.orb_irreps_to_int))
                     qftemp.apply_circuit(ref) 
                     ref_temp.append(qftemp)
                 references = ref_temp
             elif isinstance(references[0], int):
+                bit_len = len(references)
                 idx = int("".join(map(str, references)), 2)
                 vec = np.zeros(2 ** len(references), dtype=complex)
                 
@@ -95,7 +95,6 @@ class Algorithm(ABC):
                 for ref in references:
                     idx = int("".join(map(str, ref)), 2)
                     vec = np.zeros(pow(2, bit_len), dtype=complex)
-                    print(len(vec))
                     vec[idx] = 1.0
                     comp = qf.Computer(bit_len)
                     comp.set_coeff_vec(vec)
@@ -142,6 +141,21 @@ class Algorithm(ABC):
         self._n_cnot = None
         self._n_pauli_trm_measures = None
         
+    def energy_feval(self, params):
+        Uvqc = self.build_Uvqc(amplitudes = params)
+        energy = self.measure_energy(Uvqc)
+        self.curr_energy = energy
+        return energy
+
+    def measure_energy(self, U):
+        val = 0
+        for i in range(len(self._ref)):
+            qc_temp = qf.Computer(self._ref[i])
+            qc_temp.apply_circuit(U)
+            if len(self._ref) != 1:
+                val += self.p[i]*np.real(qc_temp.direct_op_exp_val(self._qb_ham))
+            else:
+                val = np.real(qc_temp.direct_op_exp_val(self._qb_ham))
 
     @abstractmethod
     def print_options_banner(self):

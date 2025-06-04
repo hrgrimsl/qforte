@@ -92,10 +92,12 @@ class General_ADAPT(UCCVQE):
                 print("\n")
                 self.report_dm()
                 print(f"Operator {idx[-1]} has max gradient {op_grads[idx[-1]]}:")
+            
 
             if len(self._tops) >= self.max_depth:
                 print("Maximum number of operators already reached.", flush=True)
                 return self.U, self.S, self.F
+            
 
             if len(self._tops) != 0 and self._tops[-1] == idx[-1]:
                 print(
@@ -107,7 +109,7 @@ class General_ADAPT(UCCVQE):
             self._tops.append(idx[-1])
             self._tamps = np.array(list(self._tamps) + [0.0])
             self._tamps = self.HOT_VQE(self._tamps)
-
+        
     def HOT_VQE(self, x):
         print("Running HOT-VQE...\n")
         self.vqe_iter = 0
@@ -199,8 +201,6 @@ class General_ADAPT(UCCVQE):
         Uvqc = self.build_Uvqc(x)
         for ref in self._ref:
             sigma = qf.Computer(ref)
-            print(type(sigma))
-            print(type(Uvqc))
             sigma.apply_circuit(Uvqc)
             kets.append(sigma.get_coeff_vec())
             sigma.apply_operator(self._qb_ham)
@@ -218,7 +218,10 @@ class General_ADAPT(UCCVQE):
             sigma.apply_circuit(Uvqc)
             ket = np.array(sigma.get_coeff_vec())
             sigma.apply_operator(self._qb_ham)
+            
+
             w[i] = np.array(sigma.get_coeff_vec()).T.real @ ket.real
+            
         return w
 
     def compute_spins(self, x):
@@ -362,6 +365,7 @@ class General_ADAPT(UCCVQE):
                 if j != len(self._tamps) - 1:
                     sigma.apply_circuit(Umus[-j - 1])
                     alpha.apply_circuit(Umus[-j - 1])
+        self.dF_norm = np.linalg.norm(dH)
         return F, dH
 
     def get_gradient_components(self, x):

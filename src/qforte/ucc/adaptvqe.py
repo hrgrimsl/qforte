@@ -95,6 +95,7 @@ class ADAPTVQE(UCCVQE):
         add_equiv_ops=False,
         tamps=[],
         tops=[],
+        ref_det = None
     ):
         self._avqe_thresh = avqe_thresh
         self._opt_thresh = opt_thresh
@@ -145,7 +146,7 @@ class ADAPTVQE(UCCVQE):
         # Print options banner (should done for all algorithms).
         self.print_options_banner()
 
-        self.fill_pool()
+        self.fill_pool(ref_det)
 
         if self._max_moment_rank:
             print("\nConstructing Moller-Plesset and Epstein-Nesbet denominators")
@@ -172,26 +173,6 @@ class ADAPTVQE(UCCVQE):
             f.write(
                 "#-------------------------------------------------------------------------------\n"
             )
-
-        if self._is_multi_state:
-            if self._state_prep_type != "computer":
-                E, A, ops = qforte.excited_state_algorithms.ritz_eigh(
-                    self._nqb, self._qb_ham, self.build_Uvqc()
-                )
-            else:
-                H_eff = qforte.build_effective_array(
-                    self._qb_ham, self.build_Uvqc()[0], self.get_initial_computer()
-                ).real
-                E, A = np.linalg.eigh(H_eff)
-            self._diag_energies.append(E)
-            self._diag_As.append(A)
-            cur_string = f"Current Energies {avqe_iter}:"
-            diag_string = f"Best Energies {avqe_iter}:"
-            for e in E:
-                diag_string += f" {e}"
-                cur_string += f" {e}"
-            print(cur_string)
-            print(diag_string)
 
         while not self._converged:
             print("\n\n -----> ADAPT-VQE iteration ", avqe_iter, " <-----\n")
