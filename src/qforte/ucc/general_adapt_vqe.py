@@ -405,10 +405,11 @@ class General_ADAPT(UCCVQE):
                 if lines[i].strip().startswith("ρ"):
                     start_idx = i + 1
                     break
-        
+
+        coeffs = []
         for line in lines[start_idx:]:
             line = line.strip()
-            if not line or not line.startswith(("+", "-")):
+            if not line or not line.startswith((" +", " -")):
                 break
             coeff = float(line.split()[0])
             coeffs.append(coeff)
