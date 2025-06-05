@@ -402,10 +402,10 @@ class General_ADAPT(UCCVQE):
         with open(filename, "r") as f:
             lines = f.readlines()
             for i in range(len(lines) - 1, -1, -1):
-                if lines[i].strip().startswith("ρ_"):
+                if lines[i].strip().startswith("ρ"):
                     start_idx = i + 1
                     break
-        coeffs = []
+        
         for line in lines[start_idx:]:
             line = line.strip()
             if not line or not line.startswith(("+", "-")):
