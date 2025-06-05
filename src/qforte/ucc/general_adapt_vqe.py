@@ -407,9 +407,10 @@ class General_ADAPT(UCCVQE):
                     break
 
         coeffs = []
+        print(lines[start_idx])
         for line in lines[start_idx:]:
             line = line.strip()
-            if not line or not line.startswith((" +", " -")):
+            if not line or not line[0] in "+-":
                 break
             coeff = float(line.split()[0])
             coeffs.append(coeff)
