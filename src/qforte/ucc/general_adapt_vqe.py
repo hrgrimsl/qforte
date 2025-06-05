@@ -413,6 +413,8 @@ class General_ADAPT(UCCVQE):
             coeff = float(line.split()[0])
             coeffs.append(coeff)
         self.p = np.array(coeffs)
+        print(coeffs)
+        exit()
 
         with open(filename, "r") as f:
             lines = f.readlines()
@@ -429,7 +431,7 @@ class General_ADAPT(UCCVQE):
                     self._tops = list(map(int, lines[i].split(":")[1].strip().split()))
                     break
 
-        print(self.p.shape)
+        
         assert len(self._tops) == len(self._tamps)
         assert len(self.p) == self.C.shape[0] == self.C.shape[1] == len(self._ref)
         self.compute_F(self._tamps)
