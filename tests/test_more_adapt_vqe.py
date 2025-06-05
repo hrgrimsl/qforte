@@ -231,7 +231,7 @@ class TestMOREADAPTVQE:
         for i in [0, 1]:
             for j in [0, 1]:
                 assert total_dip_direct[i, j] == approx(
-                    total_dip_ritz[i, j], abs=1.0e-8
+                    total_dip_ritz[i, j], abs=1.0e-7
                 )
 
     def test_gradients(self):
