@@ -429,9 +429,7 @@ class General_ADAPT(UCCVQE):
                     self._tops = list(map(int, lines[i].split(":")[1].strip().split()))
                     break
 
-        print(len(self._ref))
-        print(len(self.p))
-        print(self.C.shape)
+        print(self.p.shape)
         assert len(self._tops) == len(self._tamps)
         assert len(self.p) == self.C.shape[0] == self.C.shape[1] == len(self._ref)
         self.compute_F(self._tamps)
