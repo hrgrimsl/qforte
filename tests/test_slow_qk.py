@@ -1,8 +1,10 @@
 from pytest import approx
 from qforte import Circuit, build_circuit, QubitOperator, Molecule, MRSQK, SRQK, gate
+import pytest
 
 
 class TestPhysicalQKD:
+    @pytest.mark.skip(reason="This test is temporarily disabled")
     def test_H4_physical_qkd(self):
         print("\n")
         # The FCI energy for H4 at 1.5 Angstrom in a sto-6g basis

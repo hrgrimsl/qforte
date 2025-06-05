@@ -5,7 +5,6 @@ Classes for using an experiment to execute the variational quantum eigensolver
 for a Trotterized (disentangeld) UCCN ansatz with fixed operators.
 """
 
-import qforte
 from qforte.abc.uccvqeabc import UCCVQE
 
 from qforte.experiment import *
@@ -82,6 +81,7 @@ class UCCNVQE(UCCVQE):
         self.print_options_banner()
 
         ######### UCCN-VQE #########
+
         self.fill_pool()
         if self._verbose:
             print(self._pool_obj.str())
@@ -227,8 +227,12 @@ class UCCNVQE(UCCVQE):
                 options=opts,
                 callback=self.report_iteration,
             )
-
-            # account for paulit term measurement for gradient evaluations
+            h = 1e-6
+            # print((self.energy_feval(np.array([3+h])) - self.energy_feval(np.array([3-h])))/(2*h))
+            # print(self.gradient_ary_feval(np.array([3])))
+            # print(self.gradient_ary_feval(np.array([3])))
+            # exit()
+            # account for pauli term measurement for gradient evaluations
             # for m in range(len(self._tamps)):
             #     self._n_pauli_trm_measures += self._Nm[m] * self._Nl * res.njev
 

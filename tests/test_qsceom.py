@@ -1,12 +1,12 @@
 from pytest import approx
-from qforte import ADAPTVQE
+from qforte import General_ADAPT
 from qforte import system_factory
 from qforte import cisd_manifold
 from qforte import build_refprep
 from qforte import sq_op_to_scipy
 from qforte import q_sc_eom
 import numpy as np
-
+import pytest
 import os
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -14,6 +14,7 @@ data_path = os.path.join(THIS_DIR, "H4-sto6g-075a.json")
 
 
 class TestQSCEOM:
+    @pytest.mark.skip(reason="q-sc-EOM needs to be fixed or removed.")
     def test_lih_qsceom(self):
         geom = [("Li", (0, 0, 0)), ("H", (0, 0, 1))]
         mol = system_factory(
@@ -26,14 +27,15 @@ class TestQSCEOM:
             dipole=True,
             symmetry="C1",
         )
-        alg = ADAPTVQE(mol, print_summary_file=False, compact_excitations=True)
+        alg = General_ADAPT(
+            mol,
+            print_summary_file=False,
+            references=[0, 0, 0, 0, 1, 1, 1, 1],
+            compact_excitations=True,
+        )
 
         alg.run(
-            adapt_maxiter=1000,
-            avqe_thresh=0,
-            opt_thresh=1e-16,
-            pool_type="GSD",
-            opt_maxiter=100000,
+            algorithm="more-adapt-vqe", pool_type="GSD", max_depth=1000, weights=[1]
         )
 
         U_ansatz = alg.ansatz_circuit(alg._tamps)

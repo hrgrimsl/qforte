@@ -19,10 +19,10 @@ class General_ADAPT(UCCVQE):
         pool_type="GSD",
         max_depth=1000,
         opt_thresh=1e-16,
-        weights = None,
+        weights=None,
         restart_file=False,
         verbose=True,
-        pool_ref = None,
+        pool_ref=None,
         T=0,
     ):
         """
@@ -44,7 +44,7 @@ class General_ADAPT(UCCVQE):
         self._pool_type = pool_type
         self._compact_excitations = True
         self.verbose = verbose
-        self.fill_pool(det = pool_ref)
+        self.fill_pool()
 
         print("\n")
         print("*" * 100)
@@ -92,12 +92,10 @@ class General_ADAPT(UCCVQE):
                 print("\n")
                 self.report_dm()
                 print(f"Operator {idx[-1]} has max gradient {op_grads[idx[-1]]}:")
-            
 
             if len(self._tops) >= self.max_depth:
                 print("Maximum number of operators already reached.", flush=True)
                 return self.U, self.S, self.F
-            
 
             if len(self._tops) != 0 and self._tops[-1] == idx[-1]:
                 print(
@@ -109,7 +107,7 @@ class General_ADAPT(UCCVQE):
             self._tops.append(idx[-1])
             self._tamps = np.array(list(self._tamps) + [0.0])
             self._tamps = self.HOT_VQE(self._tamps)
-        
+
     def HOT_VQE(self, x):
         print("Running HOT-VQE...\n")
         self.vqe_iter = 0
@@ -218,10 +216,9 @@ class General_ADAPT(UCCVQE):
             sigma.apply_circuit(Uvqc)
             ket = np.array(sigma.get_coeff_vec())
             sigma.apply_operator(self._qb_ham)
-            
 
             w[i] = np.array(sigma.get_coeff_vec()).T.real @ ket.real
-            
+
         return w
 
     def compute_spins(self, x):
@@ -261,7 +258,6 @@ class General_ADAPT(UCCVQE):
             Kmu.mult_coeffs(self._pool_obj[mu][0])
             Kmus.append(Kmu)
 
-        
         for i, ref in enumerate(self._ref):
             sigma = qf.Computer(ref)
             sigma.apply_circuit(Uvqc)
@@ -290,7 +286,7 @@ class General_ADAPT(UCCVQE):
         sigmas = np.zeros((len(self._ref), len(x), pow(2, self._nqb)))
         Uvqc = self.build_Uvqc(x)
         Kmus, Umus = self.get_gradient_components(x)
-        
+
         for i, ref in enumerate(self._ref):
             sigma = qf.Computer(ref)
             sigma.apply_circuit(Uvqc)
@@ -325,7 +321,6 @@ class General_ADAPT(UCCVQE):
             Kmus.append(Kmu)
         dH = np.zeros(len(self._pool_obj))
 
-        
         for i, ref in enumerate(self._ref):
             sigma = qf.Computer(ref)
             sigma.apply_circuit(Uvqc)

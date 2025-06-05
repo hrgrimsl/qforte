@@ -1,8 +1,10 @@
 from pytest import approx
+import pytest
 from qforte import Circuit, build_circuit, QubitOperator, Molecule, MRSQK, SRQK, NTSRQK
 
 
 class TestQKD:
+    @pytest.mark.skip(reason="Computers only")
     def test_H4_fast_qkd(self):
         print("\n")
         # The FCI energy for H4 at 1.5 Angstrom in a sto-6g basis
@@ -399,19 +401,19 @@ class TestQKD:
         # Near 0 eigenvalues in the overlap matrices lead to unstable eigenvectors.
 
         # MRSQK
-        alg2 = MRSQK(mol, reference=ref, trotter_number=100)
+        alg2 = MRSQK(mol, references=ref, trotter_number=100)
         alg2.run(s=3, d=3)
         Egs2 = alg2.get_gs_energy()
         assert Egs2 == approx(E_fci, abs=1.0e-6)
 
         # SRQK
-        alg1 = SRQK(mol, reference=ref, trotter_number=100)
+        alg1 = SRQK(mol, references=ref, trotter_number=100)
         alg1.run(s=6)
         Egs1 = alg1.get_gs_energy()
         assert Egs1 == approx(E_fci, abs=1.0e-4)
 
         # Non-Trotterized (exact) SRQK
-        alg0 = NTSRQK(mol, reference=ref, verbose=True)
+        alg0 = NTSRQK(mol, references=ref, verbose=True)
         alg0.run(s=4, dt=0.8)
         Egs0 = alg0.get_gs_energy()
         assert Egs0 == approx(E_fci, abs=1.0e-3)

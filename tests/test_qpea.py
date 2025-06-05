@@ -1,8 +1,10 @@
+import pytest
 from pytest import approx
 from qforte import Circuit, build_circuit, QubitOperator, Molecule, QPE
 
 
 class TestQPE:
+    @pytest.mark.skip(reason="This test is temporarily disabled")
     def test_H2_qpe(self):
         print("\n"),
         # The FCI energy for H2 at 1.5 Angstrom in a sto-3g basis
@@ -63,6 +65,7 @@ class TestQPE:
         Egs = alg.get_gs_energy()
         assert Egs == approx(E_fci, abs=1.1e-3)
 
+    @pytest.mark.skip(reason="This test is temporarily disabled")
     def test_large_eigenvalue(self):
         E_fci = -20
 

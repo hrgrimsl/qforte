@@ -5,6 +5,7 @@ Tools for building and diagonalizing operators in subspaces obtained by methods 
 import numpy as np
 import qforte as qf
 
+
 def build_effective_symmetric_operator(qb_op, U, refs):
     """
     qb_op is a qubit operator (e.g. a Hamiltonian, S^2, dipole operator)
@@ -20,8 +21,10 @@ def build_effective_symmetric_operator(qb_op, U, refs):
         sigma.apply_circuit(U)
         sigma.apply_operator(qb_op)
         sigma.apply_circuit(U.adjoint())
-        vs.append(np.array(sigma.get_coeff_vec()))    
+        vs.append(np.array(sigma.get_coeff_vec()))
     for i in range(dim):
         for j in range(i, dim):
-            eff_op[i,j] = eff_op[j,i] = np.array(refs[i].get_coeff_vec()).T.conj()@vs[j] 
-    return eff_op 
+            eff_op[i, j] = eff_op[j, i] = (
+                np.array(refs[i].get_coeff_vec()).T.conj() @ vs[j]
+            )
+    return eff_op

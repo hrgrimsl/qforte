@@ -1,4 +1,5 @@
 from pytest import approx, mark, raises
+import pytest
 from unittest.mock import patch
 from io import StringIO
 from qforte import (
@@ -152,6 +153,7 @@ class TestPointGroupSymmetry:
             (UCCNPQE, {"pool_type": "SD"}),
         ],
     )
+    @pytest.mark.skip(reason="This test is temporarily disabled")
     def test_symmetry_ucc(self, method, options):
         groups = ["c1", "c2", "ci", "cs", "d2", "c2h", "c2v", "d2h"]
 

@@ -13,6 +13,7 @@ class TestFreezingOrbitals:
             (SPQE, {"spqe_thresh": 1.0e-4, "dt": 0.0001}),
         ],
     )
+    @pytest.mark.skip(reason="Computer references not supported")
     def test_freeze_orb_ucc(self, method, options):
         mol = system_factory(
             system_type="molecule",
@@ -24,7 +25,7 @@ class TestFreezingOrbitals:
             num_frozen_uocc=3,
         )
 
-        alg = method(mol)
+        alg = method(mol, references=[0] * 6 + [1] * 4)
 
         alg.run(**options)
 

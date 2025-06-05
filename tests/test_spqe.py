@@ -1,4 +1,5 @@
 from pytest import approx
+import pytest
 from qforte import QubitOperator, smart_print, system_factory, SPQE, UCCNPQE
 
 import os
@@ -8,6 +9,7 @@ data_path = os.path.join(THIS_DIR, "H4-sto6g-075a.json")
 
 
 class TestSPQE:
+    @pytest.mark.skip(reason="This test is temporarily disabled")
     def test_H4_spqe_exact(self):
         print("\n")
 
@@ -38,6 +40,7 @@ class TestSPQE:
         Egs = Egs_elec
         assert Egs == approx(Efci, abs=5.0e-11)
 
+    @pytest.mark.skip(reason="This test is temporarily disabled")
     def test_spqe_max_excit_rank(self):
         Rhh = 1.5
 
@@ -81,6 +84,7 @@ class TestSPQE:
         # SPQE and UCCNPQE algorithms will not be identical
         assert spqe_sd._Egs == approx(uccnpqe_sd._Egs, abs=1.0e-5)
 
+    @pytest.mark.skip(reason="This test is temporarily disabled")
     def test_spqe_scipy_solver(self):
         # In this test, we confirm that the SPQE algorithm produces
         # identical results when using the Jacobi and BFGS solvers

@@ -18,7 +18,7 @@ class Algorithm(ABC):
     ----------
     _ref : list
         Will be a list of Computer objects
-        
+
     _nqb : int
         The number of qubits the calculation empolys.
 
@@ -57,33 +57,35 @@ class Algorithm(ABC):
         references=None,
         verbose=False,
         print_summary_file=False,
+        pool_ref=None,
+        pool_type=None,
         **kwargs,
     ):
         if isinstance(self, qf.QPE) and hasattr(system, "frozen_core"):
             if system.frozen_core + system.frozen_virtual > 0:
                 raise ValueError("QPE with frozen orbitals is not currently supported.")
         self._sys = system
-
-
+        self._pool_type = pool_type
+        self._pool_ref = pool_ref
         if isinstance(references, qf.Computer):
             references = [references]
         elif isinstance(references, qf.Circuit):
-            qftemp = qf.Computer(2*len(system.orb_irreps_to_int))
-            qftemp.apply_circuit(references) 
+            qftemp = qf.Computer(2 * len(system.orb_irreps_to_int))
+            qftemp.apply_circuit(references)
             references = [qftemp]
         elif isinstance(references, list):
             if isinstance(references[0], qf.Circuit):
                 ref_temp = []
                 for ref in references:
-                    qftemp = qf.Computer(2*len(system.orb_irreps_to_int))
-                    qftemp.apply_circuit(ref) 
+                    qftemp = qf.Computer(2 * len(system.orb_irreps_to_int))
+                    qftemp.apply_circuit(ref)
                     ref_temp.append(qftemp)
                 references = ref_temp
             elif isinstance(references[0], int):
                 bit_len = len(references)
                 idx = int("".join(map(str, references)), 2)
                 vec = np.zeros(2 ** len(references), dtype=complex)
-                
+
                 vec[idx] = 1.0
                 comp = qf.Computer(bit_len)
                 comp.set_coeff_vec(vec)
@@ -100,36 +102,31 @@ class Algorithm(ABC):
                     comp.set_coeff_vec(vec)
                     references_out.append(comp)
                 references = references_out
-                
+
         self._ref = references
-        self._refprep = [qf.Circuit() for i in self._ref]
-        self._Uprep = [qf.Circuit() for i in self._ref]
-        
+
         if not isinstance(references, list):
             raise ValueError("reference should be a list of Computer objects.")
         for ref in references:
             if not isinstance(ref, qf.Computer):
-                raise ValueError(
-                    "reference should be a list of Computer objects."
-                )
-         
+                raise ValueError("reference should be a list of Computer objects.")
+
         if (
             not hasattr(self, "computer_initializable")
             or not self.computer_initializable
         ):
             raise ValueError("Class cannot be initialized with a computer.")
 
-        
         self._nqb = self._ref[0].get_nqubit()
         self._qb_ham = system.hamiltonian
-        
+
         try:
             self._hf_energy = system.hf_energy
         except AttributeError:
             self._hf_energy = 0.0
 
         self._Nl = len(self._qb_ham.terms())
-                
+
         self._verbose = verbose
         self._print_summary_file = print_summary_file
 
@@ -140,9 +137,9 @@ class Algorithm(ABC):
         self._n_classical_params = None
         self._n_cnot = None
         self._n_pauli_trm_measures = None
-        
+
     def energy_feval(self, params):
-        Uvqc = self.build_Uvqc(amplitudes = params)
+        Uvqc = self.build_Uvqc(amplitudes=params)
         energy = self.measure_energy(Uvqc)
         self.curr_energy = energy
         return energy
@@ -153,9 +150,10 @@ class Algorithm(ABC):
             qc_temp = qf.Computer(self._ref[i])
             qc_temp.apply_circuit(U)
             if len(self._ref) != 1:
-                val += self.p[i]*np.real(qc_temp.direct_op_exp_val(self._qb_ham))
+                val += self.p[i] * np.real(qc_temp.direct_op_exp_val(self._qb_ham))
             else:
                 val = np.real(qc_temp.direct_op_exp_val(self._qb_ham))
+        return val
 
     @abstractmethod
     def print_options_banner(self):
@@ -223,7 +221,7 @@ class Algorithm(ABC):
             )
 
     def print_generic_options(self):
-        """Print options applicable to any algorithm.""" 
+        """Print options applicable to any algorithm."""
         for i, r in enumerate(self._ref):
             print(
                 f"Trial reference state {i}:                   ",
@@ -232,7 +230,7 @@ class Algorithm(ABC):
         print("Number of Hamiltonian Pauli terms:       ", self._Nl)
         if isinstance(self, Trotterizable):
             self.print_trotter_options()
-        
+
 
 class AnsatzAlgorithm(Algorithm):
     """A class that characterizes the most basic functionality for all
@@ -287,14 +285,14 @@ class AnsatzAlgorithm(Algorithm):
         Uvqc = self.ansatz_circuit(amplitudes)
         return Uvqc
 
-    def fill_pool(self, det = None):
+    def fill_pool(self):
         """This function populates an operator pool with SQOperator objects.
         det: list
-        occupation list corresponding to the reference used to define excitation levels 
-        """   
+        occupation list corresponding to the reference used to define excitation levels
+        """
         if self._pool_type == "GSD":
-            det = [0]*self._nqb 
-        
+            self._pool_ref = [0] * self._nqb
+
         if self._pool_type in {
             "sa_SD",
             "GSD",
@@ -307,17 +305,18 @@ class AnsatzAlgorithm(Algorithm):
             self._pool_obj = qf.SQOpPool()
             if hasattr(self._sys, "orb_irreps_to_int"):
                 self._pool_obj.set_orb_spaces(
-                    det, self._sys.orb_irreps_to_int
+                    self._pool_ref, self._sys.orb_irreps_to_int
                 )
+
             else:
-                self._pool_obj.set_orb_spaces(det)
+                self._pool_obj.set_orb_spaces(self._pool_ref)
             self._pool_obj.fill_pool(self._pool_type)
         elif isinstance(self._pool_type, qf.SQOpPool):
             self._pool_obj = self._pool_type
-         
+
         self._Nm = [
             len(operator.jw_transform().terms()) for _, operator in self._pool_obj
-        ]    
+        ]
 
     def __init__(
         self,

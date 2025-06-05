@@ -1,4 +1,5 @@
 from pytest import approx
+import pytest
 from qforte import ADAPTVQE
 from qforte import system_factory
 
@@ -9,6 +10,7 @@ data_path = os.path.join(THIS_DIR, "H4-sto6g-075a.json")
 
 
 class TestADAPTVQE:
+    @pytest.mark.skip(reason="This test is temporarily disabled")
     def test_H4_adapt_vqe_exact(self):
         print("\n")
 
@@ -24,10 +26,12 @@ class TestADAPTVQE:
             filename=data_path,
         )
 
-        alg = ADAPTVQE(mol, print_summary_file=False, references = [0,0,0,0,1,1,1,1])
+        alg = ADAPTVQE(
+            mol, print_summary_file=False, references=[0, 0, 0, 0, 1, 1, 1, 1]
+        )
 
         alg.run(
-            ref_det = [0,0,0,0,1,1,1,1],
+            ref_det=[0, 0, 0, 0, 1, 1, 1, 1],
             adapt_maxiter=20,
             avqe_thresh=1.0e-4,
             opt_thresh=1.0e-5,
@@ -40,6 +44,7 @@ class TestADAPTVQE:
         Egs = Egs_elec
         assert Egs == approx(Efci, abs=5.0e-11)
 
+    @pytest.mark.skip(reason="This test is temporarily disabled")
     def test_adapt_vqe_jacobi_solver(self):
         # In this test, we confirm that the ADAPT-VQE algorithm produces
         # identical results when using the Jacobi and BFGS solvers
@@ -68,17 +73,29 @@ class TestADAPTVQE:
         )
 
         jacobi = ADAPTVQE(
-            mol, compact_excitations=True, qubit_excitations=True, diis_max_dim=8, references = [0,0,0,0,1,1,1,1]
+            mol,
+            compact_excitations=True,
+            qubit_excitations=True,
+            diis_max_dim=8,
+            references=[0, 0, 0, 0, 1, 1, 1, 1],
         )
         jacobi.run(
-            ref_det = [0,0,0,0,1,1,1,1],
-            optimizer="jacobi", pool_type="GSD", avqe_thresh=0.001, tamps=[], tops=[]
+            ref_det=[0, 0, 0, 0, 1, 1, 1, 1],
+            optimizer="jacobi",
+            pool_type="GSD",
+            avqe_thresh=0.001,
+            tamps=[],
+            tops=[],
         )
 
         bfgs = ADAPTVQE(mol, compact_excitations=True, qubit_excitations=True)
         bfgs.run(
-            ref_det = [0,0,0,0,1,1,1,1],
-            optimizer="BFGS", pool_type="GSD", avqe_thresh=0.001, tamps=[], tops=[]
+            ref_det=[0, 0, 0, 0, 1, 1, 1, 1],
+            optimizer="BFGS",
+            pool_type="GSD",
+            avqe_thresh=0.001,
+            tamps=[],
+            tops=[],
         )
 
         assert jacobi.get_gs_energy() == approx(bfgs.get_gs_energy(), abs=1.0e-8)

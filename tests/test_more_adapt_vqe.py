@@ -50,31 +50,31 @@ class TestMOREADAPTVQE:
         dip_z_arr = sq_op_to_scipy(mol.sq_dipole_z, alg._nqb).todense()
 
         E_direct, C_direct = np.linalg.eigh(H_arr)
-        
+
         alg.run(
             pool_type="GSD",
             opt_thresh=1e-10,
             max_depth=0,
             algorithm="more-adapt-vqe",
-            weights = weights,
-            pool_ref = refs
+            weights=weights,
+            pool_ref=refs,
         )
 
         U = alg.build_Uvqc(amplitudes=alg._tamps)
 
         E_ritz, C_ritz, ops = ritz_eigh(
-             mol.hamiltonian, U, alg._ref, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
+            mol.hamiltonian, U, alg._ref, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
         )
-        
+
         for i in range(len(E_ritz)):
             assert E_ritz[i] == approx(E_direct[i])
-        
+
         dip_x_ritz, dip_y_ritz, dip_z_ritz = ops
- 
+
         total_dip_ritz = np.zeros(dip_x_ritz.shape)
         for op in [dip_x_ritz, dip_y_ritz, dip_z_ritz]:
             total_dip_ritz += np.multiply(op.conj(), op).real
-        total_dip_ritz = np.sqrt(total_dip_ritz)        
+        total_dip_ritz = np.sqrt(total_dip_ritz)
 
         total_dip_direct = np.zeros((len(E_ritz), len(E_ritz)))
         for i in range(len(E_ritz)):
@@ -82,13 +82,14 @@ class TestMOREADAPTVQE:
                 sig = op @ C_direct[:, i]
                 for j in range(len(E_ritz)):
                     total_dip_direct[i, j] += (
-                        (sig.T.conj() @ C_direct[:, j])[0, 0] * (C_direct[:, j].T.conj() @ sig)[0, 0]
-                    ).real 
+                        (sig.T.conj() @ C_direct[:, j])[0, 0]
+                        * (C_direct[:, j].T.conj() @ sig)[0, 0]
+                    ).real
         total_dip_direct = np.sqrt(total_dip_direct)
 
-        for i in [0,1,2,8,9,15]:
-            for j in [0,1,2,8,9,15]:
-                assert total_dip_direct[i,j] == approx(total_dip_ritz[i,j])        
+        for i in [0, 1, 2, 8, 9, 15]:
+            for j in [0, 1, 2, 8, 9, 15]:
+                assert total_dip_direct[i, j] == approx(total_dip_ritz[i, j])
 
     def test_trivial_circuit_ref(self):
         geom = [("Li", (0, 0, 0)), ("H", (0, 0, 1))]
@@ -105,13 +106,13 @@ class TestMOREADAPTVQE:
 
         refs = [mol.hf_reference] + cisd_manifold(mol.hf_reference)
         refs = [build_refprep(ref) for ref in refs]
-        
+
         weights = [2 ** (-i - 1) for i in range(len(refs))]
         weights[-1] += 2 ** (-len(weights))
 
         alg = General_ADAPT(
             mol,
-            references=refs,   
+            references=refs,
         )
 
         H_arr = sq_op_to_scipy(mol.sq_hamiltonian, alg._nqb, Sz=0, N=2).todense()
@@ -120,30 +121,30 @@ class TestMOREADAPTVQE:
         dip_z_arr = sq_op_to_scipy(mol.sq_dipole_z, alg._nqb).todense()
 
         E_direct, C_direct = np.linalg.eigh(H_arr)
-        
+
         alg.run(
             pool_type="GSD",
             opt_thresh=1e-10,
             max_depth=0,
             algorithm="more-adapt-vqe",
-            weights = weights,
-            pool_ref = refs
+            weights=weights,
+            pool_ref=refs,
         )
 
         U = alg.build_Uvqc(amplitudes=alg._tamps)
 
         E_ritz, C_ritz, ops = ritz_eigh(
-             mol.hamiltonian, U, alg._ref, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
+            mol.hamiltonian, U, alg._ref, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
         )
         for i in range(len(E_ritz)):
             assert E_ritz[i] == approx(E_direct[i])
-        
+
         dip_x_ritz, dip_y_ritz, dip_z_ritz = ops
- 
+
         total_dip_ritz = np.zeros(dip_x_ritz.shape)
         for op in [dip_x_ritz, dip_y_ritz, dip_z_ritz]:
             total_dip_ritz += np.multiply(op.conj(), op).real
-        total_dip_ritz = np.sqrt(total_dip_ritz)        
+        total_dip_ritz = np.sqrt(total_dip_ritz)
 
         total_dip_direct = np.zeros((len(E_ritz), len(E_ritz)))
         for i in range(len(E_ritz)):
@@ -151,14 +152,15 @@ class TestMOREADAPTVQE:
                 sig = op @ C_direct[:, i]
                 for j in range(len(E_ritz)):
                     total_dip_direct[i, j] += (
-                        (sig.T.conj() @ C_direct[:, j])[0, 0] * (C_direct[:, j].T.conj() @ sig)[0, 0]
-                    ).real 
+                        (sig.T.conj() @ C_direct[:, j])[0, 0]
+                        * (C_direct[:, j].T.conj() @ sig)[0, 0]
+                    ).real
         total_dip_direct = np.sqrt(total_dip_direct)
 
-        for i in [0,1,2,8,9,15]:
-            for j in [0,1,2,8,9,15]:
-                assert total_dip_direct[i,j] == approx(total_dip_ritz[i,j])        
-        
+        for i in [0, 1, 2, 8, 9, 15]:
+            for j in [0, 1, 2, 8, 9, 15]:
+                assert total_dip_direct[i, j] == approx(total_dip_ritz[i, j])
+
     def test_full_computer_ref(self):
         geom = [("Li", (0, 0, 0)), ("H", (0, 0, 1))]
         mol = system_factory(
@@ -178,8 +180,7 @@ class TestMOREADAPTVQE:
         computers = [Computer(8), Computer(8)]
         computers[0].set_coeff_vec(refs[0])
         computers[1].set_coeff_vec(refs[1])
-        
-        
+
         alg = General_ADAPT(
             mol,
             references=computers,
@@ -191,7 +192,7 @@ class TestMOREADAPTVQE:
         dip_z_arr = sq_op_to_scipy(mol.sq_dipole_z, alg._nqb).todense()
 
         E_direct, C_direct = np.linalg.eigh(H_arr)
-        
+
         alg.run(
             pool_type="GSD",
             opt_thresh=1e-10,
@@ -199,22 +200,22 @@ class TestMOREADAPTVQE:
             algorithm="more-adapt-vqe",
             weights=[0.6, 0.4],
         )
-        
+
         U = alg.build_Uvqc(amplitudes=alg._tamps)
 
         E_ritz, C_ritz, ops = ritz_eigh(
-             mol.hamiltonian, U, alg._ref, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
+            mol.hamiltonian, U, alg._ref, [mol.dipole_x, mol.dipole_y, mol.dipole_z]
         )
-        
+
         for i in range(len(E_ritz)):
             assert E_ritz[i] == approx(E_direct[i])
-        
+
         dip_x_ritz, dip_y_ritz, dip_z_ritz = ops
- 
+
         total_dip_ritz = np.zeros(dip_x_ritz.shape)
         for op in [dip_x_ritz, dip_y_ritz, dip_z_ritz]:
             total_dip_ritz += np.multiply(op.conj(), op).real
-        total_dip_ritz = np.sqrt(total_dip_ritz)        
+        total_dip_ritz = np.sqrt(total_dip_ritz)
 
         total_dip_direct = np.zeros((len(E_ritz), len(E_ritz)))
         for i in range(len(E_ritz)):
@@ -222,14 +223,17 @@ class TestMOREADAPTVQE:
                 sig = op @ C_direct[:, i]
                 for j in range(len(E_ritz)):
                     total_dip_direct[i, j] += (
-                        (sig.T.conj() @ C_direct[:, j])[0, 0] * (C_direct[:, j].T.conj() @ sig)[0, 0]
-                    ).real 
+                        (sig.T.conj() @ C_direct[:, j])[0, 0]
+                        * (C_direct[:, j].T.conj() @ sig)[0, 0]
+                    ).real
         total_dip_direct = np.sqrt(total_dip_direct)
 
-        for i in [0,1]:
-            for j in [0,1]: 
-                assert total_dip_direct[i,j] == approx(total_dip_ritz[i,j], abs = 1.0e-8)        
-        
+        for i in [0, 1]:
+            for j in [0, 1]:
+                assert total_dip_direct[i, j] == approx(
+                    total_dip_ritz[i, j], abs=1.0e-8
+                )
+
     def test_gradients(self):
         geom = [("Li", (0, 0, 0)), ("H", (0, 0, 1))]
         mol = system_factory(
@@ -245,10 +249,12 @@ class TestMOREADAPTVQE:
 
         alg = General_ADAPT(
             mol,
-            references=[[0,0,0,0,1,1,1,1],
-                        [0,0,1,1,0,0,1,1],
-                        [0,0,1,0,0,1,1,1],
-                        [0,0,0,1,1,0,1,1]],
+            references=[
+                [0, 0, 0, 0, 1, 1, 1, 1],
+                [0, 0, 1, 1, 0, 0, 1, 1],
+                [0, 0, 1, 0, 0, 1, 1, 1],
+                [0, 0, 0, 1, 1, 0, 1, 1],
+            ],
             compact_excitations=True,
             state_prep_type="computer",
         )
@@ -270,7 +276,7 @@ class TestMOREADAPTVQE:
             alg._tamps, alg.compute_F, epsilon=h
         )
         dF_analytical = alg.compute_dF(alg._tamps)[1]
-        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs = 1e-6)
+        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs=1e-6)
 
         alg.coupling = False
         alg.compute_F(alg._tamps)
@@ -278,8 +284,4 @@ class TestMOREADAPTVQE:
             alg._tamps, alg.compute_F, epsilon=h
         )
         dF_analytical = alg.compute_uncoupled_dF(alg._tamps)[1]
-        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs = 1e-6)
-
-        
-
-        
+        assert np.linalg.norm(dF_numerical - dF_analytical) == approx(0, abs=1e-6)

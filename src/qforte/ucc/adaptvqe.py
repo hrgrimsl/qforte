@@ -95,7 +95,7 @@ class ADAPTVQE(UCCVQE):
         add_equiv_ops=False,
         tamps=[],
         tops=[],
-        ref_det = None
+        ref_det=None,
     ):
         self._avqe_thresh = avqe_thresh
         self._opt_thresh = opt_thresh
@@ -146,8 +146,9 @@ class ADAPTVQE(UCCVQE):
         # Print options banner (should done for all algorithms).
         self.print_options_banner()
 
-        self.fill_pool(ref_det)
-
+        self.fill_pool(det=ref_det)
+        print(len(self._pool_obj))
+        exit()
         if self._max_moment_rank:
             print("\nConstructing Moller-Plesset and Epstein-Nesbet denominators")
             self.construct_moment_space()
@@ -570,6 +571,7 @@ class ADAPTVQE(UCCVQE):
 
     def conv_status(self):
         """Sets the convergence states."""
+
         if abs(self._curr_grad_norm) < abs(self._avqe_thresh):
             self._converged = True
             self._final_energy = self._energies[-1]

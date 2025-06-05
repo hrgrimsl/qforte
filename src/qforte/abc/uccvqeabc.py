@@ -116,7 +116,7 @@ class UCCVQE(UCC, VQE):
 
         return np.real(grads)
 
-    def measure_gradient(self, params=None):
+    def measure_gradient(self, params):
         """Returns the disentangled (factorized) UCC gradient, using a
         recursive approach, as described in Section D of the Appendix of
         10.1038/s41467-019-10988-2
@@ -127,17 +127,13 @@ class UCCVQE(UCC, VQE):
             The variational parameters which characterize _Uvqc.
         """
 
-        M = len(self._tamps)
+        M = len(params)
 
         grads = np.zeros(M)
 
-        if params is None:
-            Utot = self.build_Uvqc()
-        else:
-            Utot = self.build_Uvqc(params)
+        Utot = self.build_Uvqc(params)
 
-        
-        qc_psi = self._ref[0]
+        qc_psi = qf.Computer(self._ref[0])
         qc_psi.apply_circuit(Utot)
         qc_sig = qf.Computer(qc_psi)
         qc_sig.apply_operator(self._qb_ham)
@@ -193,8 +189,7 @@ class UCCVQE(UCC, VQE):
                     # (see original ADAPT-VQE paper)
                     Umu.add(
                         compact_excitation_circuit(
-                            -tamp
-                            * self._pool_obj[self._tops[mu + 1]][1].terms()[1][0],
+                            -tamp * self._pool_obj[self._tops[mu + 1]][1].terms()[1][0],
                             self._pool_obj[self._tops[mu + 1]][1].terms()[1][1],
                             self._pool_obj[self._tops[mu + 1]][1].terms()[1][2],
                             self._qubit_excitations,
@@ -238,11 +233,9 @@ class UCCVQE(UCC, VQE):
             grads[mu] = 2.0 * np.real(
                 np.vdot(qc_sig.get_coeff_vec(), qc_temp.get_coeff_vec())
             )
-
             # reset Kmu |psi_i> -> |psi_i>
             Kmu_prev = Kmu
 
-        
         np.testing.assert_allclose(np.imag(grads), np.zeros_like(grads), atol=1e-12)
         # print(f"Gradient: {grads}")
         # print(f"Energy: {self.measure_energy(Utot)}")
@@ -258,7 +251,7 @@ class UCCVQE(UCC, VQE):
         In the case where _is_multi_state, this will give the weighted average of
         these gradients for each reference.
         """
-        
+
         Kmus = []
         for mu, (coeff, operator) in enumerate(self._pool_obj):
             Kmu = operator.jw_transform(self._qubit_excitations)
@@ -266,35 +259,30 @@ class UCCVQE(UCC, VQE):
             Kmus.append(Kmu)
 
         U_ansatz = self.ansatz_circuit()
+
         grads = np.zeros(len(self._pool_obj))
 
         for r in range(len(self._ref)):
             qc_psi = self._ref[r]
             qc_psi.apply_circuit(U_ansatz)
-            
-            psi_i = qc_psi.get_coeff_vec()
-
-            qc_sig = qforte.Computer(self._nqb)
-            qc_sig.set_coeff_vec(psi_i)
+            qc_sig = qforte.Computer(qc_psi)
             qc_sig.apply_operator(self._qb_ham)
 
             for mu, (coeff, operator) in enumerate(self._pool_obj):
                 Kmu = Kmus[mu]
-                qc_psi.apply_operator(Kmu)
+                qc_temp = qf.Computer(qc_psi)
+                qc_temp.apply_operator(Kmu)
                 grads[mu] += (
                     self._weights[r]
                     * 2.0
-                    * np.real(
-                        np.vdot(qc_sig.get_coeff_vec(), qc_psi.get_coeff_vec())
-                    )
+                    * np.real(np.vdot(qc_sig.get_coeff_vec(), qc_psi.get_coeff_vec()))
                 )
-                qc_psi.set_coeff_vec(psi_i)
 
         np.testing.assert_allclose(np.imag(grads), np.zeros_like(grads), atol=1e-7)
-
         return grads
 
     def gradient_ary_feval(self, params):
+        print(self._tamps)
         grads = self.measure_gradient(params)
 
         if self._noise_factor > 1e-14:
@@ -303,14 +291,10 @@ class UCCVQE(UCC, VQE):
                 for grad_m in grads
             ]
 
-        if not self._is_multi_state:
-            factor = 1
-        else:
-            factor = len(self._ref)
+        factor = 1
         self._curr_grad_norm = np.linalg.norm(grads)
         self._res_vec_evals += factor
-        self._res_m_evals += factor * len(self._tamps)
-
+        self._res_m_evals += factor * len(params)
         return np.asarray(grads)
 
     def report_iteration(self, x):

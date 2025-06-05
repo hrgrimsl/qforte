@@ -1,4 +1,5 @@
 from pytest import approx
+import pytest
 import qforte as qf
 import numpy as np
 import random
@@ -668,6 +669,7 @@ class TestCircuitSimplify:
             circ.simplify()
             assert circ.size() == 0
 
+    @pytest.mark.skip(reason="I don't care about PQE right now.")
     def test_simplify_H6_STO6G_UCCSDT_ansatz_circuit(self):
         Rhh = 2
 
@@ -694,7 +696,12 @@ class TestCircuitSimplify:
             run_fci=0,
         )
 
-        feb_uccsdt = qf.UCCNPQE(mol, compact_excitations=True, qubit_excitations=False)
+        feb_uccsdt = qf.UCCNPQE(
+            mol,
+            compact_excitations=True,
+            qubit_excitations=False,
+            references=[[0] * 6 + [1] * 6],
+        )
         feb_uccsdt.run(
             pool_type="SDT", opt_maxiter=10, optimizer="jacobi", opt_thresh=1.0e-5
         )

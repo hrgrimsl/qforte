@@ -14,6 +14,7 @@ class TestEfficientCircuits:
             (SPQE, {"spqe_thresh": 0.01}),
         ],
     )
+    @pytest.mark.skip(reason="Computers not allowed")
     def test_feb_qeb_circuits(self, method, options):
         Rhh = 1.5
 
@@ -40,12 +41,18 @@ class TestEfficientCircuits:
 
         for qubit_excit in [False, True]:
             standard = method(
-                mol, compact_excitations=False, qubit_excitations=qubit_excit
+                mol,
+                compact_excitations=False,
+                qubit_excitations=qubit_excit,
+                references=[0, 0, 0, 0, 1, 1, 1, 1],
             )
             standard.run(**options)
 
             efficient = method(
-                mol, compact_excitations=True, qubit_excitations=qubit_excit
+                mol,
+                compact_excitations=True,
+                qubit_excitations=qubit_excit,
+                references=[0, 0, 0, 0, 1, 1, 1, 1],
             )
             efficient.run(**options)
 

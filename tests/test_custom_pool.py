@@ -21,7 +21,7 @@ class TestCustomPool:
         sq_op.add_term(-1, [2, 3], [0, 1])
         pool.add_term(1, sq_op)
 
-        alg = UCCNVQE(mol)
-        alg.run(pool_type=pool, use_analytic_grad=True)
+        alg = UCCNVQE(mol, references=[0, 0, 1, 1])
+        alg.run(pool_type=pool)
 
         assert alg.get_gs_energy() == approx(Efci, abs=1.0e-10)
