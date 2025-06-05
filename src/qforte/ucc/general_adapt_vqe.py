@@ -113,7 +113,6 @@ class General_ADAPT(UCCVQE):
         self.vqe_iter = 0
         print(f"HOT-VQE Iter.      Free Energy (Eh)     gnorm")
         while True:
-
             if self.coupling == True:
                 dF_function = self.compute_dF
             else:
@@ -402,12 +401,14 @@ class General_ADAPT(UCCVQE):
         with open(filename, "r") as f:
             lines = f.readlines()
             for i in range(len(lines) - 1, -1, -1):
-                if lines[i].strip().startswith("ρ"):
+                if lines[i].strip().startswith("ρ") or lines[i].strip().startswith(
+                    "Effective"
+                ):
                     start_idx = i + 1
                     break
 
         coeffs = []
-        
+
         for line in lines[start_idx:]:
             line = line.strip()
             if not line or not line[0] in "+-":
@@ -415,8 +416,6 @@ class General_ADAPT(UCCVQE):
             coeff = float(line.split()[0])
             coeffs.append(coeff)
         self.p = np.array(coeffs)
-        
-        
 
         with open(filename, "r") as f:
             lines = f.readlines()
@@ -433,7 +432,6 @@ class General_ADAPT(UCCVQE):
                     self._tops = list(map(int, lines[i].split(":")[1].strip().split()))
                     break
 
-        
         assert len(self._tops) == len(self._tamps)
         assert len(self.p) == self.C.shape[0] == self.C.shape[1] == len(self._ref)
         self.compute_F(self._tamps)
