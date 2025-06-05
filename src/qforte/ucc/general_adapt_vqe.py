@@ -407,7 +407,7 @@ class General_ADAPT(UCCVQE):
                     break
 
         coeffs = []
-        print(lines[start_idx])
+        
         for line in lines[start_idx:]:
             line = line.strip()
             if not line or not line[0] in "+-":
@@ -415,8 +415,8 @@ class General_ADAPT(UCCVQE):
             coeff = float(line.split()[0])
             coeffs.append(coeff)
         self.p = np.array(coeffs)
-        print(coeffs)
-        exit()
+        
+        
 
         with open(filename, "r") as f:
             lines = f.readlines()
