@@ -398,7 +398,7 @@ class General_ADAPT(UCCVQE):
             block_lines = lines[start_idx : start_idx + n]
             data = [list(map(float, line.strip().split())) for line in block_lines]
             self.C = np.array(data)
-        
+
             with open(filename, "r") as f:
                 lines = f.readlines()
                 for i in range(len(lines) - 1, -1, -1):
