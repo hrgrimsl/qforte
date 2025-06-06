@@ -69,6 +69,11 @@ class General_ADAPT(UCCVQE):
         return self.run_hot_adapt_vqe()
 
     def run_hot_adapt_vqe(self):
+        print(self._tamps)
+        print(self._tops)
+        print(self.T)
+        print(self.p)
+        exit()
         self.compute_F(self._tamps)
         while True:
             if self.coupling == True:
@@ -435,6 +440,7 @@ class General_ADAPT(UCCVQE):
                     self._tops = list(map(int, lines[i].split(":")[1].strip().split()))
                     break
         print(len(self._tamps))
+        print(len(self._tops))
         exit()
         self.compute_F(self._tamps)
 
