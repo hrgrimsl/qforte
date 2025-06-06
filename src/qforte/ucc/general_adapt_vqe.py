@@ -435,8 +435,6 @@ class General_ADAPT(UCCVQE):
                     self._tops = list(map(int, lines[i].split(":")[1].strip().split()))
                     break
 
-        assert len(self._tops) == len(self._tamps)
-        assert len(self.p) == len(self._ref)
         self.compute_F(self._tamps)
 
     def get_num_commut_measurements(self):
