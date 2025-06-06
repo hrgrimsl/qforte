@@ -434,7 +434,8 @@ class General_ADAPT(UCCVQE):
                 if lines[i].startswith("Operators at"):
                     self._tops = list(map(int, lines[i].split(":")[1].strip().split()))
                     break
-
+        print(len(self._tamps))
+        exit()
         self.compute_F(self._tamps)
 
     def get_num_commut_measurements(self):
