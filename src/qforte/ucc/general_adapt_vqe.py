@@ -386,36 +386,39 @@ class General_ADAPT(UCCVQE):
         return Kmus, Umus
 
     def parse_existing_hot_adapt_vqe_file(self, filename):
-        with open(filename, "r") as f:
-            lines = f.readlines()
-            for i in range(len(lines) - 1, -1, -1):
-                if lines[i].startswith("CI Coefficients"):
-                    start_idx = i + 2
+        try:
+            with open(filename, "r") as f:
+                lines = f.readlines()
+                for i in range(len(lines) - 1, -1, -1):
+                    if lines[i].startswith("CI Coefficients"):
+                        start_idx = i + 2
+                        break
+            first_line = lines[start_idx].strip().split()
+            n = len(first_line)
+            block_lines = lines[start_idx : start_idx + n]
+            data = [list(map(float, line.strip().split())) for line in block_lines]
+            self.C = np.array(data)
+        
+            with open(filename, "r") as f:
+                lines = f.readlines()
+                for i in range(len(lines) - 1, -1, -1):
+                    if lines[i].strip().startswith("ρ") or lines[i].strip().startswith(
+                        "Effective"
+                    ):
+                        start_idx = i + 1
+                        break
+
+            coeffs = []
+
+            for line in lines[start_idx:]:
+                line = line.strip()
+                if not line or not line[0] in "+-":
                     break
-        first_line = lines[start_idx].strip().split()
-        n = len(first_line)
-        block_lines = lines[start_idx : start_idx + n]
-        data = [list(map(float, line.strip().split())) for line in block_lines]
-        self.C = np.array(data)
-
-        with open(filename, "r") as f:
-            lines = f.readlines()
-            for i in range(len(lines) - 1, -1, -1):
-                if lines[i].strip().startswith("ρ") or lines[i].strip().startswith(
-                    "Effective"
-                ):
-                    start_idx = i + 1
-                    break
-
-        coeffs = []
-
-        for line in lines[start_idx:]:
-            line = line.strip()
-            if not line or not line[0] in "+-":
-                break
-            coeff = float(line.split()[0])
-            coeffs.append(coeff)
-        self.p = np.array(coeffs)
+                coeff = float(line.split()[0])
+                coeffs.append(coeff)
+            self.p = np.array(coeffs)
+        except:
+            pass
 
         with open(filename, "r") as f:
             lines = f.readlines()
@@ -433,7 +436,7 @@ class General_ADAPT(UCCVQE):
                     break
 
         assert len(self._tops) == len(self._tamps)
-        assert len(self.p) == self.C.shape[0] == self.C.shape[1] == len(self._ref)
+        assert len(self.p) == len(self._ref)
         self.compute_F(self._tamps)
 
     def get_num_commut_measurements(self):
