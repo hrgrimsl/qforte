@@ -22,7 +22,7 @@ class General_ADAPT(UCCVQE):
         weights=None,
         restart_file=False,
         verbose=True,
-        pool_ref=None,
+        coupling=None,
         T=0,
     ):
         """
@@ -53,7 +53,8 @@ class General_ADAPT(UCCVQE):
         print("\n", flush=True)
 
         if algorithm == "more-adapt-vqe":
-            self.coupling = False
+            if coupling == None:
+                self.coupling = False
             self.T = 0
             self.p = np.array(self._weights)
             self.beta = 0
