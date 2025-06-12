@@ -186,7 +186,7 @@ class General_ADAPT(UCCVQE):
             q = np.zeros(len(self.w))
             q[0] = 1
         else:
-            q = np.exp(-self.beta * (self.w - self.w[0]))
+            q = np.exp(-self.beta * (self.w - np.amin(self.w)))
         Z = np.sum(q)
         if self.algorithm == "hot-adapt-vqe":
             self.p = q / Z
