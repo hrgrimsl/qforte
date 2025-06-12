@@ -169,6 +169,7 @@ class General_ADAPT(UCCVQE):
         if self.algorithm == "hot-adapt-vqe":
             print(f"S:  {self.S:20.16f}")
             print(f"F:  {self.F:+20.16f}")
+        if self.coupling == True:
             print(f"\nCI Coefficients:\n")
             for i in range(self.C.shape[0]):
                 print(*list(self.C[i, :]))
