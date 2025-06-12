@@ -55,11 +55,17 @@ class General_ADAPT(UCCVQE):
         if algorithm == "more-adapt-vqe":
             if coupling == None:
                 self.coupling = False
+            else:
+                self.coupling = coupling
             self.T = 0
             self.p = np.array(self._weights)
             self.beta = 0
         elif algorithm == "hot-adapt-vqe":
-            self.coupling = True
+            if coupling == None:
+                self.coupling = True
+            else:
+                self.coupling = coupling
+
             self.T = T
             if self.T != 0 and self.T != "Inf":
                 self.beta = 1 / (kb * self.T)
