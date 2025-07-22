@@ -24,7 +24,7 @@ class General_ADAPT(UCCVQE):
         verbose=True,
         coupling=None,
         T=0,
-        pool_ref = None
+        pool_ref=None,
     ):
         """
         algorithm, string: Choices are adapt-vqe, more-adapt-vqe, and hot-adapt-vqe
